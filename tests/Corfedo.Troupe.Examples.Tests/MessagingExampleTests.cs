@@ -75,7 +75,7 @@ public sealed class MessagingExampleTests
     public async Task QueuedHttpSubmissionRunsOrderAndCascadedReceiptHandlers()
     {
         using var errors = new ErrorObserver();
-        var builder = Builder("orders"); builder.Logging.AddProvider(errors);
+        var builder = Builder("orders"); builder.Logging.AddProvider(errors); builder.FinalizeComposition();
         await using var application = builder.Build(); application.UseComposition(); await application.StartAsync(TestContext.Current.CancellationToken);
         using var client = Client(application); var id = Guid.NewGuid().ToString("N");
         using var accepted = await client.PostAsJsonAsync("/orders/queued", new PlaceOrder(id), TestContext.Current.CancellationToken);
@@ -94,7 +94,7 @@ public sealed class MessagingExampleTests
     [Fact]
     public async Task SharedComponentsAreComposedOnceWithEveryRolesContribution()
     {
-        var builder = Builder("combined"); await using var application = builder.Build(); application.UseComposition();
+        var builder = Builder("combined"); builder.FinalizeComposition(); await using var application = builder.Build(); application.UseComposition();
         var manifest = application.Services.GetRequiredService<IComposition>().Manifest;
         Assert.Single(manifest.Contributors, contributor => contributor.Owner.Type == typeof(MessageProcessing));
         Assert.Single(manifest.Services, service => service.ServiceType == typeof(MessageJournal) && service.Active);
@@ -103,7 +103,7 @@ public sealed class MessagingExampleTests
     [Fact]
     public async Task IncompleteCompiledArtifactFailsStaticStartupForTheMissingConsumer()
     {
-        var builder = Builder("combined");
+        var builder = Builder("combined"); builder.FinalizeComposition();
         await using var application = builder.Build(); application.UseComposition();
         var options = application.Services.GetRequiredService<WolverineOptions>();
         options.ApplicationAssembly = typeof(ArtifactAssembly).Assembly;

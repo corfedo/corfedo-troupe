@@ -121,7 +121,8 @@ internal sealed class CompositionSession
     }
     internal void BeginPipeline()
     {
-        RequirePhase(CompositionPhase.Configuring, CompositionPhase.Finalized);
+        RequireFinalized();
+        RequirePhase(CompositionPhase.Finalized);
         FinalizeComposition();
         Phase = CompositionPhase.ApplyingPipeline;
     }
@@ -219,8 +220,17 @@ internal sealed class CompositionSession
     }
     private void EnsureUsable() { if (failure is not null) throw failure; }
 
+    // Pipeline application and startup revalidate a finalized composition; they do not finalize it themselves.
+    private void RequireFinalized()
+    {
+        EnsureUsable();
+        if (Phase == CompositionPhase.Configuring) throw Fail(DiagnosticCodes.Unfinalized,
+            "Composition is not finalized. Call FinalizeComposition on the builder before Build.", ServiceLedger.Application);
+    }
+
     internal CompositionManifest ValidateServingComposition()
     {
+        RequireFinalized();
         var manifest = FinalizeComposition();
         if (integration is { PipelineOwners.Count: > 0 } && Phase != CompositionPhase.PipelineApplied)
             throw Fail(DiagnosticCodes.UnappliedPipeline, "Recorded middleware or endpoints were not applied. Call UseComposition on a web application before Start.", integration.PipelineOwners.ToArray());

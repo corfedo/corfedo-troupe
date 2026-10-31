@@ -33,7 +33,7 @@ public sealed class CoreTests
     private static IHost ComposeGraph(string selection, out CompositionManifest manifest)
     {
         A.Declare = r => r.Requires<Store>(); B.Declare = r => r.Requires<Branch>().Requires<Store>();
-        var builder = Builder(selection); manifest = builder.Compose<Definition>(); return builder.Build();
+        var builder = Builder(selection); manifest = builder.Compose<Definition>(); builder.FinalizeComposition(); return builder.Build();
     }
     [Fact]
     public void GraphIsFullyValidatedBeforeServiceCallbacksAndUnselectedRolesAreNotDeclared()
@@ -54,7 +54,7 @@ public sealed class CoreTests
         var builder = Builder(""); builder.Configuration["Profile"] = "both";
         var manifest = builder.Compose<ProfileDefinition>();
         Assert.Equal("both", manifest.Profile!.Name); Assert.Equal(["a", "b"], manifest.Roles.Select(r => r.Name));
-        using var host = builder.Build();
+        builder.FinalizeComposition(); using var host = builder.Build();
         Assert.Equal("both", host.Services.GetRequiredService<IComposition>().Profile!.Name);
         Assert.Equal(["both"], CompositionExtensions.DeclaredProfiles<ProfileDefinition>().Select(p => p.Name));
         Assert.Null(Builder("a").Compose<Definition>().Profile);

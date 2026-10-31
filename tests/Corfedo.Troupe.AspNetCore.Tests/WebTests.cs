@@ -58,7 +58,7 @@ public sealed class WebTests
             r.Endpoints(e => { e.MapGet("/ordered", () => "second").WithOrder(1); e.MapFallback(() => "fallback"); });
         };
         var builder = Builder("b,a"); builder.Compose<Definition>();
-        await using var app = builder.Build(); app.UseComposition();
+        builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
         var runtime = app.Services.GetRequiredService<IComposition>();
         Assert.All(runtime.AspNetCore().Endpoints, e => Assert.NotNull(e.Endpoint.Metadata.GetMetadata<EndpointOwner>()));
         Assert.DoesNotContain(runtime.Manifest.Diagnostics, d => d.Code == "TRP102");
@@ -90,7 +90,7 @@ public sealed class WebTests
             r.Endpoints(e => { e.MapGet("/discover", () => "public").WithName("discover").AllowAnonymous(); e.MapGet("/private", () => "private").RequireAuthorization(); });
         };
         var builder = Builder("a"); builder.Compose<Definition>();
-        await using var app = builder.Build(); app.UseComposition();
+        builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
         await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = Client(app);
         Assert.Equal("public", await client.GetStringAsync("/discover", TestContext.Current.CancellationToken));
@@ -111,7 +111,7 @@ public sealed class WebTests
             r.Use("auth", app => app.UseAuthentication());
             r.Endpoints(e => e.MapGet("/", () => "ok"));
         };
-        var builder = Builder("a"); builder.Compose<Definition>(); await using var app = builder.Build(); app.UseComposition();
+        var builder = Builder("a"); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
         await app.StartAsync(TestContext.Current.CancellationToken); using var client = Client(app);
         Assert.Equal("ok", await client.GetStringAsync("/", TestContext.Current.CancellationToken));
         Assert.Equal(["ingress", "authentication"], trace);
@@ -121,7 +121,7 @@ public sealed class WebTests
     {
         A.Declare = r => r.Endpoints(e => { e.MapGet("/amb/{x}", () => "a"); e.MapGet("/overlap/{x:int}", () => "int"); });
         B.Declare = r => r.Endpoints(e => { e.MapGet("/amb/{y}", () => "b"); e.MapGet("/overlap/{y:long}", () => "long"); });
-        var builder = Builder(); builder.Compose<Definition>(); await using var app = builder.Build(); app.UseComposition();
+        var builder = Builder(); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
         Assert.Equal(2, app.Services.GetRequiredService<IComposition>().Manifest.Diagnostics.Count(d => d.Code == "TRP102"));
         await app.StartAsync(TestContext.Current.CancellationToken); using var client = Client(app);
         using var ambiguous = await client.GetAsync("/amb/one", TestContext.Current.CancellationToken);
@@ -142,7 +142,7 @@ public sealed class WebTests
             e.MapGet("/value/{x:alpha}", () => "alpha"); e.MapPost("/method", () => "post");
             e.MapGet("/host", () => "b").RequireHost("b.example");
         });
-        var builder = Builder(); builder.Compose<Definition>(); await using var app = builder.Build(); app.UseComposition();
+        var builder = Builder(); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
         Assert.DoesNotContain(app.Services.GetRequiredService<IComposition>().Manifest.Diagnostics, d => d.Code == "TRP102");
         await app.StartAsync(TestContext.Current.CancellationToken); using var client = Client(app);
         Assert.Equal("int", await client.GetStringAsync("/value/1", TestContext.Current.CancellationToken));
@@ -158,7 +158,7 @@ public sealed class WebTests
     {
         A.Declare = r => r.Endpoints(e => e.MapGet("/first", () => "a").WithName("same"));
         B.Declare = r => r.Endpoints(e => e.MapGet("/second", () => "b").WithName("same"));
-        var builder = Builder(); builder.Compose<Definition>(); await using var app = builder.Build();
+        var builder = Builder(); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build();
         Assert.Contains("TRP101", Assert.Throws<CompositionException>(() => app.UseComposition()).Message);
     }
     [Fact]
@@ -166,7 +166,7 @@ public sealed class WebTests
     {
         A.Declare = r => r.Use("unknown", _ => { });
         Assert.Throws<CompositionException>(() => Builder("a").Compose<Definition>());
-        var builder = Builder("a"); builder.Compose<NoRoutingDefinition>(); await using var app = builder.Build();
+        var builder = Builder("a"); builder.Compose<NoRoutingDefinition>(); builder.FinalizeComposition(); await using var app = builder.Build();
         Assert.Contains("explicit root UseRouting", Assert.Throws<CompositionException>(() => app.UseComposition()).Message);
     }
     [Fact]
@@ -174,7 +174,7 @@ public sealed class WebTests
     {
         A.Declare = r => r.Endpoints(e => e.MapStaticAssets());
         B.Declare = r => r.Endpoints(e => e.MapFallback(() => "fallback"));
-        var builder = Builder(); builder.WebHost.UseStaticWebAssets(); builder.Compose<Definition>(); await using var app = builder.Build(); app.UseComposition();
+        var builder = Builder(); builder.WebHost.UseStaticWebAssets(); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
         var endpoints = app.Services.GetRequiredService<IComposition>().AspNetCore().Endpoints;
         Assert.Contains(endpoints, e => e.Endpoint is RouteEndpoint route && route.RoutePattern.RawText == "/probe.txt" && e.Owner.Name == "a");
         await app.StartAsync(TestContext.Current.CancellationToken); using var client = Client(app);
@@ -188,9 +188,10 @@ public sealed class WebTests
         Assert.Contains("TRP103", Assert.Throws<CompositionException>(() => missing.Compose<Definition>()).Message);
         var extra = Builder("a"); extra.Configuration["Kestrel:Endpoints:secret:Url"] = "http://127.0.0.1:0";
         Assert.Contains("not requested", Assert.Throws<CompositionException>(() => extra.Compose<Definition>()).Message);
+        var duplicate = Builder("a"); duplicate.Compose<Definition>(); duplicate.ConfigureCompositionEndpoint("public", _ => { });
+        Assert.Throws<CompositionException>(() => duplicate.ConfigureCompositionEndpoint("PUBLIC", _ => { }));
         var valid = Builder("a"); valid.Compose<Definition>(); valid.ConfigureCompositionEndpoint("public", _ => { });
-        Assert.Throws<CompositionException>(() => valid.ConfigureCompositionEndpoint("PUBLIC", _ => { }));
-        await using var host = valid.Build();
+        valid.FinalizeComposition(); await using var host = valid.Build();
         var manifest = host.Services.GetRequiredService<IComposition>().AspNetCore();
         Assert.Equal(OwnerKind.Application, Assert.Single(manifest.KestrelEndpoints).CallbackOwner!.Kind);
     }

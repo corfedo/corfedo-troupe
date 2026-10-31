@@ -25,7 +25,7 @@ public sealed class OptionsAndHostingTests
     [Fact]
     public async Task RequiredOptionsAlsoFailValueAndStartupIfSectionDisappears()
     {
-        var builder = OptionsBuilder(); builder.Compose<Definition>();
+        var builder = OptionsBuilder(); builder.Compose<Definition>(); builder.FinalizeComposition();
         builder.Configuration.Sources.Clear();
         using var host = builder.Build();
         var valueError = Assert.Throws<OptionsValidationException>(() => host.Services.GetRequiredService<IOptions<Probe>>().Value);
@@ -39,7 +39,7 @@ public sealed class OptionsAndHostingTests
     public async Task InvalidOptionsFailBothValueAndStartup(string value, Type errorType)
     {
         var builder = OptionsBuilder(value); builder.Compose<Definition>();
-        using var host = builder.Build();
+        builder.FinalizeComposition(); using var host = builder.Build();
         Assert.IsType(errorType, Record.Exception(() => host.Services.GetRequiredService<IOptions<Probe>>().Value));
         Assert.IsType(errorType, await Record.ExceptionAsync(() => host.StartAsync(TestContext.Current.CancellationToken)));
     }
@@ -62,7 +62,7 @@ public sealed class OptionsAndHostingTests
             r.Services(s => { s.AddSingleton<ValidationDependency>(); s.AddSingleton<IValidateOptions<Probe>, Even>(); });
         };
         var manifest = builder.Compose<Definition>();
-        using var host = builder.Build();
+        builder.FinalizeComposition(); using var host = builder.Build();
         Assert.Equal(2, host.Services.GetRequiredService<IOptions<Probe>>().Value.Count);
         await host.StartAsync(TestContext.Current.CancellationToken);
         await host.StopAsync(TestContext.Current.CancellationToken);
@@ -70,7 +70,7 @@ public sealed class OptionsAndHostingTests
         Assert.DoesNotContain(manifest.Diagnostics, d => d.Code == "TRP001");
         var bad = OptionsBuilder("3");
         A.Declare = r => { r.Options<Probe, Positive>("Probe"); r.Services(s => { s.AddSingleton<ValidationDependency>(); s.AddSingleton<IValidateOptions<Probe>, Even>(); }); };
-        bad.Compose<Definition>(); using var badHost = bad.Build();
+        bad.Compose<Definition>(); bad.FinalizeComposition(); using var badHost = bad.Build();
         Assert.Contains("even", Assert.Throws<OptionsValidationException>(() => badHost.Services.GetRequiredService<IOptions<Probe>>().Value).Message);
     }
     [Fact]
@@ -89,7 +89,7 @@ public sealed class OptionsAndHostingTests
             r.Check(async (_, _) => { events.Add("check1"); await Task.Yield(); events.Add("check1-end"); });
             r.Check((_, _) => { events.Add("check2"); return Task.CompletedTask; });
         };
-        builder.Compose<Definition>(); using var host = builder.Build();
+        builder.Compose<Definition>(); builder.FinalizeComposition(); using var host = builder.Build();
         Assert.Empty(events);
         await host.StartAsync(TestContext.Current.CancellationToken);
         Assert.Equal(["constructor", "validation", "check1", "check1-end", "check2", "start"], events);
@@ -109,7 +109,7 @@ public sealed class OptionsAndHostingTests
             r.Check(async (_, token) => { firstEntered.SetResult(); await otherEntered.Task.WaitAsync(token); firstCompleted = true; });
             r.Check((_, _) => { Assert.True(firstCompleted); return Task.CompletedTask; });
         };
-        builder.Compose<Definition>(); using var host = builder.Build();
+        builder.Compose<Definition>(); builder.FinalizeComposition(); using var host = builder.Build();
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
         await host.StartAsync(timeout.Token);
@@ -120,13 +120,13 @@ public sealed class OptionsAndHostingTests
     {
         var builder = Builder("a");
         A.Declare = r => r.Check((_, _) => throw new InvalidOperationException("specific failure"));
-        builder.Compose<Definition>(); using var host = builder.Build();
+        builder.Compose<Definition>(); builder.FinalizeComposition(); using var host = builder.Build();
         var error = await Assert.ThrowsAsync<CompositionCheckException>(() => host.StartAsync(TestContext.Current.CancellationToken));
         Assert.Equal("a", error.Owner.Name); Assert.Equal("specific failure", error.InnerException!.Message);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var canceledBuilder = Builder("a");
         A.Declare = r => r.Check(async (_, token) => { entered.SetResult(); await Task.Delay(Timeout.InfiniteTimeSpan, token); });
-        canceledBuilder.Compose<Definition>(); using var canceledHost = canceledBuilder.Build();
+        canceledBuilder.Compose<Definition>(); canceledBuilder.FinalizeComposition(); using var canceledHost = canceledBuilder.Build();
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var starting = canceledHost.StartAsync(cancellation.Token);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
@@ -145,7 +145,7 @@ public sealed class OptionsAndHostingTests
             if (failStart) r.Check((sp, _) => { sp.GetRequiredService<Resource>(); throw new InvalidOperationException("failed check"); });
         };
         builder.Compose<Definition>();
-        var host = builder.Build();
+        builder.FinalizeComposition(); var host = builder.Build();
         Assert.Equal(0, state.Created);
         try
         {
@@ -161,12 +161,12 @@ public sealed class OptionsAndHostingTests
     {
         var calls = 0; var builder = Builder("a");
         A.Declare = r => r.Services(s => s.AddSingleton<Foo>(_ => { calls++; throw new InvalidOperationException("factory"); }));
-        builder.Compose<Definition>(); using var host = builder.Build();
+        builder.Compose<Definition>(); builder.FinalizeComposition(); using var host = builder.Build();
         Assert.Equal(0, calls);
         Assert.Throws<InvalidOperationException>(() => host.Services.GetRequiredService<Foo>());
         Assert.Equal(1, calls);
         var invalid = Builder("a"); A.Declare = r => r.Services(s => s.AddSingleton<MissingDependency>());
-        invalid.Compose<Definition>(); Assert.Throws<AggregateException>(() => invalid.Build());
+        invalid.Compose<Definition>(); invalid.FinalizeComposition(); Assert.Throws<AggregateException>(() => invalid.Build());
     }
     [Fact]
     public void GraphAndCompositionFailureDoNotAcquireResourcesAndCapturedInstancesRemainApplicationOwned()
@@ -179,7 +179,7 @@ public sealed class OptionsAndHostingTests
         try
         {
             var builder = Builder("a"); A.Declare = r => r.Services(s => s.AddSingleton(resource));
-            builder.Compose<Definition>(); using (var host = builder.Build()) host.Services.GetRequiredService<Resource>();
+            builder.Compose<Definition>(); builder.FinalizeComposition(); using (var host = builder.Build()) host.Services.GetRequiredService<Resource>();
             Assert.Equal(0, state.Disposed);
         }
         finally { resource.Dispose(); }
@@ -190,7 +190,7 @@ public sealed class OptionsAndHostingTests
     {
         var builder = Builder("a");
         A.Declare = r => { r.Options<Probe>("Absent", required: false); r.ReadsConfiguration("Optional", required: false); };
-        var manifest = builder.Compose<Definition>(); using var host = builder.Build();
+        var manifest = builder.Compose<Definition>(); builder.FinalizeComposition(); using var host = builder.Build();
         Assert.Equal(0, host.Services.GetRequiredService<IOptions<Probe>>().Value.Count);
         Assert.All(manifest.Configuration, c => Assert.False(c.Required));
         await host.StartAsync(TestContext.Current.CancellationToken);
@@ -210,7 +210,7 @@ public sealed class OptionsAndHostingTests
             });
         };
         builder.Compose<Definition>();
-        using (var host = builder.Build())
+        builder.FinalizeComposition(); using (var host = builder.Build())
         {
             await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync(TestContext.Current.CancellationToken));
             Assert.Equal(1, state.Created); Assert.Equal(0, state.Disposed);
@@ -230,7 +230,7 @@ public sealed class OptionsAndHostingTests
             {
                 A.Declare = r => r.Services(s => s.AddSingleton<MissingDependency>());
                 builder.Compose<Definition>(); builder.Services.AddSingleton(adapterResource);
-                Assert.Throws<AggregateException>(() => builder.Build());
+                builder.FinalizeComposition(); Assert.Throws<AggregateException>(() => builder.Build());
             }
             else
             {

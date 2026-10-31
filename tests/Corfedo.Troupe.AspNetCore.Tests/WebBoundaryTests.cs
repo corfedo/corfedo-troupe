@@ -54,7 +54,7 @@ public sealed class WebBoundaryTests
     [Fact]
     public async Task MissingRootRoutingIncludesTheDiagnosticInItsManifest()
     {
-        var builder = Builder("a"); builder.Compose<NoRoutingDefinition>(); await using var app = builder.Build();
+        var builder = Builder("a"); builder.Compose<NoRoutingDefinition>(); builder.FinalizeComposition(); await using var app = builder.Build();
         var failure = Assert.Throws<CompositionException>(() => app.UseComposition());
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP100" && d.Message.Contains("UseRouting"));
         Assert.Same(failure, Assert.Throws<CompositionException>(() => builder.FinalizeComposition()));
@@ -70,7 +70,7 @@ public sealed class WebBoundaryTests
             if (endpoint) r.Endpoints(_ => throw original);
             else r.Use("ingress", _ => throw original);
         };
-        var builder = Builder("a"); builder.Compose<Definition>(); await using var app = builder.Build();
+        var builder = Builder("a"); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build();
         var failure = Assert.Throws<CompositionException>(() => app.UseComposition());
         Assert.Same(original, failure.InnerException);
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP017" && d.Owners.Single().Name == "a");
@@ -95,10 +95,18 @@ public sealed class WebBoundaryTests
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP015" && d.Owners.Single().Name == "a");
     }
     [Fact]
+    public async Task PipelineApplicationRequiresFinalization()
+    {
+        var calls = 0; A.Declare = r => r.Endpoints(e => { calls++; e.MapGet("/", () => "ok"); });
+        var builder = Builder("a"); builder.Compose<Definition>(); await using var app = builder.Build();
+        var failure = Assert.Throws<CompositionException>(() => app.UseComposition());
+        Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP018"); Assert.Equal(0, calls);
+    }
+    [Fact]
     public async Task PipelineApplicationCannotBeRepeated()
     {
         var calls = 0; A.Declare = r => r.Endpoints(e => { calls++; e.MapGet("/", () => "ok"); });
-        var builder = Builder("a"); builder.Compose<Definition>(); await using var app = builder.Build(); app.UseComposition();
+        var builder = Builder("a"); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
         var failure = Assert.Throws<CompositionException>(() => app.UseComposition());
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP016"); Assert.Equal(1, calls);
     }
@@ -129,7 +137,7 @@ public sealed class WebBoundaryTests
             r.Endpoints(e => { GC.KeepAlive(marker); e.MapGet("/", () => "ok"); });
         };
         var builder = Builder("a"); builder.Compose<Definition>(); A.Declare = _ => { };
-        var app = builder.Build(); app.UseComposition(); return app;
+        builder.FinalizeComposition(); var app = builder.Build(); app.UseComposition(); return app;
     }
     public sealed class StageOnlyDefinition : ICompositionDefinition
     {

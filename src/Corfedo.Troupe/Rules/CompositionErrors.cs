@@ -5,6 +5,7 @@ internal static class DiagnosticCodes
     internal const string ClosedDeclaration = "TRP015";
     internal const string InvalidPhase = "TRP016";
     internal const string CallbackFailure = "TRP017";
+    internal const string Unfinalized = "TRP018";
     internal const string UnappliedPipeline = "TRP105";
 }
 

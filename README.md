@@ -95,9 +95,11 @@ Stateless, parameterless definitions only declare: no I/O or resource acquisitio
 execute after graph validation. Runtime consumers inject `IComposition` for membership and snapshots.
 `Includes<TComponent>()` reports whether a component is composed in this process, available from Build on.
 
-Keep `ValidateOnBuild` and `ValidateScopes` enabled, as the examples do. Finalize after adapters and
-before Build to capture application registrations and reject unconsumed contributions. This early call is
-optional; pipeline application and startup use the same session-owned finalization operation. Each exact
+Keep `ValidateOnBuild` and `ValidateScopes` enabled, as the examples do. The call sequence is
+`Compose; FinalizeComposition; Build; UseComposition; Run`. `FinalizeComposition` is required after
+adapters and before Build: it captures application registrations and rejects unconsumed contributions.
+Pipeline application and startup revalidate the finalized composition and fail with TRP018 when the call
+was skipped. Each exact
 builder target type is applied once. Declaration builders close when their Compose callbacks return.
 A failed composition cannot be reused; callback failures retain their owner, original exception and
 failure manifest. Runtime IComposition exposes successfully validated snapshots, separately from the build

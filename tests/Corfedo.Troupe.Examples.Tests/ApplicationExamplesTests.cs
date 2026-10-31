@@ -53,7 +53,7 @@ public sealed class ApplicationExamplesTests
     {
         using var observer = new HeartbeatObserver();
         var builder = WorkerApplication.CreateBuilder(["--Worker:IntervalSeconds", "0"], ContentRoot("Worker"));
-        builder.Logging.ClearProviders(); builder.Logging.AddProvider(observer);
+        builder.Logging.ClearProviders(); builder.Logging.AddProvider(observer); builder.FinalizeComposition();
         using var host = builder.Build();
         Assert.Throws<OptionsValidationException>(() => host.Services.GetRequiredService<IOptions<HeartbeatOptions>>().Value);
         await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync(TestContext.Current.CancellationToken));

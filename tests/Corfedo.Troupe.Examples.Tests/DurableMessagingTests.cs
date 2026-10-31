@@ -62,6 +62,7 @@ public sealed class DurableMessagingTests
         var incompleteBuilder = MessagingApplication.CreateDurableBuilder(
             ["--profile", "combined", "--Messaging:ConnectionString", connectionString,
              "--Kestrel:Endpoints:public:Url", "http://127.0.0.1:0"], ApplicationExamplesTests.ContentRoot("Messaging"));
+        incompleteBuilder.FinalizeComposition();
         await using (var incomplete = incompleteBuilder.Build())
         {
             incomplete.UseComposition();

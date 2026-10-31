@@ -12,12 +12,12 @@ public sealed class CompositionFactsTests
     {
         A.Declare = r => r.Requires<Store>(); B.Declare = r => r.Requires<Branch>();
         var builder = Builder("a"); builder.Compose<Definition>();
-        using var host = builder.Build();
+        builder.FinalizeComposition(); using var host = builder.Build();
         var composition = host.Services.GetRequiredService<IComposition>();
         Assert.True(composition.Includes<Store>());
         Assert.False(composition.Includes<Branch>());
         var combined = Builder("a,b"); combined.Compose<Definition>();
-        using var both = combined.Build();
+        combined.FinalizeComposition(); using var both = combined.Build();
         Assert.True(both.Services.GetRequiredService<IComposition>().Includes<Branch>());
     }
     [Fact]

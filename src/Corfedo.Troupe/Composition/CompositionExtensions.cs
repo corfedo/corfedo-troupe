@@ -41,6 +41,6 @@ public static class CompositionExtensions
         CompositionSession.Get(builder).ApplyContributions(target);
     }
     /// <summary>Captures adapter registrations, rejects unconsumed contributions, and validates before Build.</summary>
-    /// <remarks>Optional early finalization after adapters and before Build. Pipeline application and startup use the same finalization operation. The application keeps ValidateOnBuild and ValidateScopes enabled.</remarks>
+    /// <remarks>Required after adapters and before Build. Pipeline application and startup revalidate the finalized composition and fail with TRP018 when this call was skipped. The application keeps ValidateOnBuild and ValidateScopes enabled.</remarks>
     public static CompositionManifest FinalizeComposition(this IHostApplicationBuilder builder) => CompositionSession.Get(builder).FinalizeComposition();
 }

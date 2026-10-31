@@ -53,7 +53,7 @@ public sealed class KestrelTests
         var builder = TlsBuilder(certificates); builder.Compose<Definition>();
         builder.ConfigureCompositionEndpoint("public", endpoint => { first++; endpoint.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate; });
         builder.WebHost.ConfigureKestrel(o => o.ConfigurationLoader!.Endpoint("public", _ => second++));
-        await using (var app = builder.Build())
+        builder.FinalizeComposition(); await using (var app = builder.Build())
         {
             app.UseComposition(); await app.StartAsync(TestContext.Current.CancellationToken);
             using var anonymous = certificates.HttpClient(app, withClient: false);
@@ -85,7 +85,7 @@ public sealed class KestrelTests
         };
         B.Declare = r => r.KestrelEndpoint("internal", _ => unselected++);
         var builder = TlsBuilder(certificates); builder.Compose<Definition>();
-        await using var app = builder.Build(); app.UseComposition();
+        builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
         var endpoint = Assert.Single(app.Services.GetRequiredService<IComposition>().AspNetCore().KestrelEndpoints);
         Assert.Equal(("public", OwnerKind.Role, "a"), (endpoint.Name, endpoint.CallbackOwner!.Kind, endpoint.CallbackOwner.Name));
         await app.StartAsync(TestContext.Current.CancellationToken);
@@ -116,7 +116,7 @@ public sealed class KestrelTests
         var builder = Builder("a");
         builder.WebHost.ConfigureKestrel(o => o.Configure(builder.Configuration.GetSection("Kestrel"), reloadOnChange: true));
         builder.Compose<Definition>();
-        await using (var app = builder.Build())
+        builder.FinalizeComposition(); await using (var app = builder.Build())
         {
             app.UseComposition(); await app.StartAsync(TestContext.Current.CancellationToken);
             using var client = Client(app);
@@ -125,7 +125,7 @@ public sealed class KestrelTests
         }
         var replaced = Builder("a"); replaced.Compose<Definition>();
         replaced.WebHost.ConfigureKestrel(o => o.Configure(replaced.Configuration.GetSection("Kestrel"), reloadOnChange: false));
-        var error = Assert.Throws<InvalidOperationException>(() => replaced.Build());
+        replaced.FinalizeComposition(); var error = Assert.Throws<InvalidOperationException>(() => replaced.Build());
         Assert.Contains("named endpoint loader was replaced", error.Message);
         Assert.Equal(1, callbacks);
     }
@@ -134,16 +134,16 @@ public sealed class KestrelTests
     {
         A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));
         var firstBuilder = Builder("a"); firstBuilder.Compose<Definition>();
-        await using var first = firstBuilder.Build(); first.UseComposition();
+        firstBuilder.FinalizeComposition(); await using var first = firstBuilder.Build(); first.UseComposition();
         await first.StartAsync(TestContext.Current.CancellationToken);
         using var client = Client(first); var port = client.BaseAddress!.Port;
         var same = Builder("a"); same.Configuration["Kestrel:Endpoints:public:Url"] = $"http://127.0.0.1:{port}";
-        same.Compose<Definition>(); await using var collision = same.Build(); collision.UseComposition();
+        same.Compose<Definition>(); same.FinalizeComposition(); await using var collision = same.Build(); collision.UseComposition();
         await Assert.ThrowsAsync<IOException>(() => collision.StartAsync(TestContext.Current.CancellationToken));
         if (System.Net.Sockets.Socket.OSSupportsIPv6)
         {
             var disjoint = Builder("a"); disjoint.Configuration["Kestrel:Endpoints:public:Url"] = $"http://[::1]:{port}";
-            disjoint.Compose<Definition>(); await using var ipv6 = disjoint.Build(); ipv6.UseComposition();
+            disjoint.Compose<Definition>(); disjoint.FinalizeComposition(); await using var ipv6 = disjoint.Build(); ipv6.UseComposition();
             await ipv6.StartAsync(TestContext.Current.CancellationToken);
             using var ipv6Client = Client(ipv6);
             Assert.Equal("ok", await ipv6Client.GetStringAsync("/", TestContext.Current.CancellationToken));

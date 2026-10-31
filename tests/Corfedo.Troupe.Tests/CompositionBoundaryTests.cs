@@ -86,12 +86,13 @@ public sealed class CompositionBoundaryTests
         Assert.Same(validated, runtime.Manifest);
     }
     [Fact]
-    public async Task GenericHostDoesNotRequireExplicitFinalization()
+    public async Task GenericHostStartFailsWhenFinalizationWasSkipped()
     {
         var checks = 0; A.Declare = r => r.Check((_, _) => { checks++; return Task.CompletedTask; });
         var builder = Builder("a"); builder.Compose<Definition>(); using var host = builder.Build();
-        await host.StartAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(1, checks); await host.StopAsync(TestContext.Current.CancellationToken);
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() => host.StartAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("TRP018", failure.ToString());
+        Assert.Equal(0, checks);
     }
     [Fact]
     public void CompletedServiceAndBuilderCallbacksAreReleasedWhileHostRemainsAlive()
@@ -111,18 +112,18 @@ public sealed class CompositionBoundaryTests
         };
         var builder = Builder("a"); builder.Compose<Definition>(); builder.ApplyContributions(new List<string>());
         A.Declare = _ => { };
-        return builder.Build();
+        builder.FinalizeComposition(); return builder.Build();
     }
     [Fact]
-    public async Task ApplicationAdaptersCanApplyContributionsDuringBuildWithoutEarlyFinalization()
+    public void ContributionsCannotBeAppliedAfterFinalization()
     {
         A.Declare = r => r.Contribute<List<string>>(target => target.Add("a"));
         var builder = Builder("a"); builder.Compose<Definition>(); var target = new List<string>();
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }),
             _ => builder.ApplyContributions(target));
-        using var host = builder.Build();
-        Assert.Equal(["a"], target);
-        await host.StartAsync(TestContext.Current.CancellationToken); await host.StopAsync(TestContext.Current.CancellationToken);
+        var failure = Assert.Throws<CompositionException>(() => builder.FinalizeComposition());
+        Assert.Contains(failure.Diagnostics, d => d.Code == "TRP008");
+        Assert.Empty(target);
     }
     [Fact]
     public async Task CompletedStartupChecksReleaseTheirCapturedState()
@@ -139,14 +140,14 @@ public sealed class CompositionBoundaryTests
         var marker = new object(); captured = new(marker);
         A.Declare = r => r.Check((_, _) => { GC.KeepAlive(marker); return Task.CompletedTask; });
         var builder = Builder("a"); builder.Compose<Definition>(); A.Declare = _ => { };
-        return builder.Build();
+        builder.FinalizeComposition(); return builder.Build();
     }
     [Fact]
     public async Task CanceledChecksLeaveAFailedSessionWithTheirCause()
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         A.Declare = r => r.Check(async (_, token) => { entered.SetResult(); await Task.Delay(Timeout.InfiniteTimeSpan, token); });
-        var builder = Builder("a"); builder.Compose<Definition>(); using var host = builder.Build();
+        var builder = Builder("a"); builder.Compose<Definition>(); builder.FinalizeComposition(); using var host = builder.Build();
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         var start = host.StartAsync(cancellation.Token);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken); cancellation.Cancel();
