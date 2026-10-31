@@ -17,6 +17,7 @@ internal sealed class CompositionSession(IHostApplicationBuilder builder, Defini
     internal readonly HashSet<Type> Multiple = [];
     internal readonly HashSet<(Type Type, object? Key)> Exclusive = [];
     internal readonly List<ConfigurationRead> Configuration = [];
+    internal readonly List<ICompositionRule> InternalRules = [];
     internal readonly List<CompositionDiagnostic> AdditionalDiagnostics = [];
     internal readonly Dictionary<Type, object> Extensions = [];
     internal bool Finalized;
@@ -34,7 +35,7 @@ internal sealed class CompositionSession(IHostApplicationBuilder builder, Defini
             Array.AsReadOnly(Contributions.Select(c => new ContributionEntry(c.Owner, c.Target, c.Applied)).ToArray()),
             Array.AsReadOnly(AdditionalDiagnostics.ToArray()));
         if (!evaluateRules) return manifest;
-        var diagnostics = CoreRules.Evaluate(this, manifest).Concat(AdditionalDiagnostics).ToList();
+        var diagnostics = CoreRules.Evaluate(this, manifest).Concat(InternalRules.SelectMany(r => r.Evaluate(manifest))).Concat(AdditionalDiagnostics).ToList();
         manifest = new(manifest.Roles, manifest.Contributors, manifest.Services, manifest.ServiceMutations,
             manifest.Configuration, manifest.Contributions, Array.AsReadOnly(diagnostics.ToArray()));
         foreach (var rule in Definition.Rules) diagnostics.AddRange(rule.Evaluate(manifest));
