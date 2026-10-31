@@ -376,14 +376,14 @@
       "corfedo.troupe.aspnetcore": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.0-alpha.4, )"
+          "Corfedo.Troupe": "[0.1.0, )"
         }
       },
       "corfedo.troupe.testing": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.0-alpha.4, )",
-          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.4, )"
+          "Corfedo.Troupe": "[0.1.0, )",
+          "Corfedo.Troupe.AspNetCore": "[0.1.0, )"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {

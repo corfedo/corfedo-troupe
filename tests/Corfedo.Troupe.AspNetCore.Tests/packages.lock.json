@@ -123,7 +123,7 @@
       "corfedo.troupe.aspnetcore": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.0-alpha.4, )"
+          "Corfedo.Troupe": "[0.1.0, )"
         }
       }
     }
