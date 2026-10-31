@@ -10,7 +10,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
   <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10-512BD4.svg" alt=".NET 10"></a>
-  <a href="https://www.nuget.org/packages/Corfedo.Troupe"><img src="https://img.shields.io/nuget/v/Corfedo.Troupe.svg" alt="NuGet: Corfedo.Troupe"></a>
+  <a href="https://github.com/orgs/corfedo/packages?repo_name=corfedo-troupe"><img src="https://img.shields.io/github/v/release/corfedo/corfedo-troupe?label=GitHub%20Packages" alt="GitHub Packages"></a>
   <a href="https://github.com/corfedo/corfedo-troupe/actions/workflows/ci.yml"><img src="https://github.com/corfedo/corfedo-troupe/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
 </p>
 
@@ -42,7 +42,13 @@ Use it to keep a multi-role .NET application composable and checkable:
 
 ## Quick start
 
-Requires the .NET 10 SDK.
+Requires the .NET 10 SDK. The packages are published to GitHub Packages, which requires a GitHub token with
+`read:packages` to restore, also for public packages. Add the source once:
+
+```sh
+dotnet nuget add source https://nuget.pkg.github.com/corfedo/index.json --name corfedo \
+  --username <github-user> --password <token-with-read:packages>
+```
 
 ```sh
 dotnet add package Corfedo.Troupe
