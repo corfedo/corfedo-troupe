@@ -12,8 +12,13 @@ internal sealed class ServiceLedger(IServiceCollection collection)
     private readonly List<ServiceMutation> mutations = [];
     private long sequence;
 
-    internal void Synchronize()
+    internal void Synchronize() => Synchronize(Application, guard: false);
+
+    // Attributes collection changes made since the last synchronization to owner. A contributor's removal of another owner's
+    // occurrence has already happened, so it is recorded as accepted and then fails with TRP003 when guarded.
+    private void Synchronize(CompositionOwner owner, bool guard)
     {
+        var observed = owner == Application;
         var available = live.GroupBy<Occurrence, ServiceDescriptor>(o => o.Descriptor, ReferenceEqualityComparer.Instance)
             .ToDictionary(g => g.Key, g => new Queue<Occurrence>(g), (IEqualityComparer<ServiceDescriptor>)ReferenceEqualityComparer.Instance);
         var current = new List<Occurrence>();
@@ -23,17 +28,32 @@ internal sealed class ServiceLedger(IServiceCollection collection)
                 current.Add(occurrence);
             else
             {
-                var added = Create(descriptor, Application);
-                Event(ServiceMutationKind.ApplicationChange, Application, added, null, true);
+                var added = Create(descriptor, owner);
+                Event(observed ? ServiceMutationKind.ApplicationChange : ServiceMutationKind.Add, owner, added, null, true);
                 current.Add(added);
             }
         }
+        var foreign = new List<Occurrence>();
         foreach (var removed in available.Values.SelectMany(q => q))
         {
-            removed.RemovedBy = Application;
-            Event(ServiceMutationKind.ApplicationChange, Application, removed, null, true);
+            removed.RemovedBy = owner;
+            Event(observed ? ServiceMutationKind.ApplicationChange : ServiceMutationKind.Remove, owner, removed, null, true);
+            if (!observed && removed.Owner != owner) foreign.Add(removed);
         }
         live.Clear(); live.AddRange(current);
+        if (guard && foreign.Count > 0)
+            throw Errors.Fail("TRP003", string.Join(" ", foreign.Select(f =>
+                $"{owner.Name} cannot Remove service {f.Descriptor.ServiceType} occurrence {f.Id} owned by {f.Owner.Name}.")),
+                [owner, .. foreign.Select(f => f.Owner).Distinct()]);
+    }
+
+    // Attributes registrations a callback makes directly on the builder's collection to the callback's owner.
+    internal void Attribute(CompositionOwner owner, Action callback)
+    {
+        Synchronize();
+        try { callback(); }
+        catch { Synchronize(owner, guard: false); throw; }
+        Synchronize(owner, guard: true);
     }
 
     internal void Configure(CompositionOwner owner, Action<IServiceCollection> callback, bool privileged = false)

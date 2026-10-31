@@ -43,7 +43,9 @@ public static class CompositionExtensions
     /// <summary>Gets the serving profiles the definition declares, in declaration order, without composing.</summary>
     public static IReadOnlyList<ProfileIdentity> DeclaredProfiles<T>() where T : ICompositionDefinition, new() =>
         Array.AsReadOnly(DefinitionBuilder.Create<T>().Profiles.ToArray());
-    /// <summary>Applies callbacks once for the exact target type in canonical order. Library descriptors are application-owned.</summary>
+    /// <summary>Applies callbacks once for the exact target type in canonical order.</summary>
+    /// <remarks>Registrations a callback adds synchronously to the builder's service collection are owned by its contributor; removing
+    /// another owner's registration fails with TRP003. Registrations the adapter makes outside the callbacks are application-owned.</remarks>
     public static void ApplyContributions<T>(this IHostApplicationBuilder builder, T target)
     {
         ArgumentNullException.ThrowIfNull(target);

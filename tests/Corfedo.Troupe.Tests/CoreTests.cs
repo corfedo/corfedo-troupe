@@ -208,6 +208,41 @@ public sealed class CoreTests
         Assert.Throws<CompositionException>(() => duplicate.ApplyContributions(new List<string>()));
     }
     [Fact]
+    public void ContributionsOwnRegistrationsTheyAddAndAdapterRegistrationsStayApplicationOwned()
+    {
+        B.Declare = r =>
+        {
+            r.Services(s => s.AddSingleton<Bar>());
+            r.Contribute<ServicesTarget>(t => { t.Services.AddSingleton<Foo>(); t.Services.RemoveAll<Bar>(); });
+        };
+        var builder = Builder("b"); builder.Compose<Definition>();
+        builder.Services.AddSingleton<Client>();
+        builder.ApplyContributions(new ServicesTarget(builder.Services));
+        builder.Services.AddSingleton<OtherWorker>();
+        var manifest = builder.FinalizeComposition();
+        var role = new CompositionOwner(OwnerKind.Role, "b", typeof(B));
+        var foo = Assert.Single(manifest.Services, s => s.ServiceType == typeof(Foo));
+        Assert.Equal(role, foo.Owner); Assert.True(foo.Active);
+        Assert.Contains(manifest.ServiceMutations, m => m.Occurrence == foo.Id && m.Kind == ServiceMutationKind.Add && m.Owner == role);
+        Assert.Equal(role, Assert.Single(manifest.Services, s => s.ServiceType == typeof(Bar)).RemovedBy);
+        Assert.Equal(ServiceLedgerApplication, Assert.Single(manifest.Services, s => s.ServiceType == typeof(Client)).Owner);
+        Assert.Equal(ServiceLedgerApplication, Assert.Single(manifest.Services, s => s.ServiceType == typeof(OtherWorker)).Owner);
+    }
+    [Fact]
+    public void ContributionsCannotRemoveAnotherOwnersRegistration()
+    {
+        A.Declare = r => r.Contribute<ServicesTarget>(t => t.Services.RemoveAll<Foo>());
+        var builder = Builder("a"); builder.Compose<Definition>();
+        builder.Services.AddSingleton<Foo>();
+        var error = Assert.Throws<CompositionException>(() => builder.ApplyContributions(new ServicesTarget(builder.Services)));
+        var diagnostic = Assert.Single(error.Diagnostics);
+        Assert.Equal("TRP003", diagnostic.Code);
+        Assert.Equal([new CompositionOwner(OwnerKind.Role, "a", typeof(A)), ServiceLedgerApplication], diagnostic.Owners);
+        Assert.Equal("a", Assert.Single(error.Manifest!.Services, s => s.ServiceType == typeof(Foo)).RemovedBy!.Name);
+    }
+    private static readonly CompositionOwner ServiceLedgerApplication = new(OwnerKind.Application, "application");
+    public sealed class ServicesTarget(IServiceCollection services) { public IServiceCollection Services { get; } = services; }
+    [Fact]
     public void AdapterRegistrationsAreApplicationOwnedAndSnapshotsDoNotChange()
     {
         var builder = Builder("a"); var before = builder.Compose<Definition>();

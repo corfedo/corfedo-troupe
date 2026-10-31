@@ -91,7 +91,8 @@ internal sealed class CompositionSession
             contributions.Where(c => c.Target == typeof(T)).Select(c => c.Owner).Distinct().ToArray());
         foreach (var contribution in contributions.Where(c => c.Target == typeof(T)))
         {
-            Invoke(contribution.Owner, $"contribution to {typeof(T).FullName}", () => contribution.Callback!(target!));
+            var callback = contribution.Callback!;
+            Invoke(contribution.Owner, $"contribution to {typeof(T).FullName}", () => ledger!.Attribute(contribution.Owner, () => callback(target!)));
             contribution.Applied = true;
             contribution.Callback = null;
         }

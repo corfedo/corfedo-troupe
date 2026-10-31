@@ -188,7 +188,10 @@ narrow to one, fails with TRP019, so a stale replacement cannot become a silent 
 overrides are also owned by `test:<profile>`; they may remove any owner's registrations.
 
 Provenance covers synchronous mutations through the supplied IServiceCollection; do not retain it.
-Suppressed TryAdd attempts and external mutations cannot be attributed to contributors. Service duplicates
+A contribution owns the registrations its callback adds synchronously to the builder's service collection, recorded
+as the net change of the callback; removing another owner's registration there fails with TRP003. Registrations an
+adapter makes outside the callbacks, such as the library's own services, are application-owned.
+Suppressed TryAdd attempts and other external mutations cannot be attributed to contributors. Service duplicates
 are advisory unless explicitly exclusive. Known hosted duplicates, foreign removals and duplicate endpoint
 names are errors. Route overlap diagnostics are bounded candidates considering order, precedence, methods,
 hosts and constraints; custom policies need HTTP tests. ASP0022/ASP0023 remain enabled.
