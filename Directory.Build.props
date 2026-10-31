@@ -9,7 +9,7 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <Authors>Wojciech Wentland</Authors>
     <Copyright>Copyright 2026 Wojciech Wentland</Copyright>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReadmeFile>package-readme.md</PackageReadmeFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Version>0.1.0-alpha.4</Version>
@@ -18,7 +18,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
-    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" />
+    <None Include="$(MSBuildThisFileDirectory)docs/package-readme.md" Pack="true" PackagePath="" />
     <None Include="$(MSBuildThisFileDirectory)NOTICE" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>
