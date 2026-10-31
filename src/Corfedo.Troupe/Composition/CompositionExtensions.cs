@@ -9,17 +9,26 @@ public static class CompositionExtensions
     /// Reads the selection (Profile configuration when the definition declares profiles, otherwise Roles), resolves the selected graph, and
     /// executes recorded service callbacks.
     /// </summary>
-    public static CompositionManifest Compose<T>(this IHostApplicationBuilder builder) where T : ICompositionDefinition, new()
+    public static CompositionManifest Compose<T>(this IHostApplicationBuilder builder) where T : ICompositionDefinition, new() =>
+        Compose(builder, () =>
+        {
+            var definition = DefinitionBuilder.Create<T>();
+            var (profile, roles) = Graph.Select(definition, builder.Configuration["Profile"], builder.Configuration["Roles"]);
+            return (definition, profile, roles.Select(n => definition.Roles[n].Identity).ToArray(), Graph.ResolveRoles(definition, roles));
+        });
+
+    // Shared by role selection and test roots: the builder composes once, and the resolved closure executes in canonical order.
+    internal static CompositionManifest Compose(IHostApplicationBuilder builder,
+        Func<(DefinitionBuilder Definition, ProfileIdentity? Profile, RoleIdentity[] Roles, ContributorBuilder[] Nodes)> resolve)
     {
         ArgumentNullException.ThrowIfNull(builder);
         if (CompositionSession.TryGet(builder) is { } existing)
             throw existing.Fail(DiagnosticCodes.InvalidPhase, "A builder can compose only once.", ServiceLedger.Application);
-        var definition = DefinitionBuilder.Create<T>();
-        var (profile, roles, nodes) = Graph.Resolve(definition, builder.Configuration["Profile"], builder.Configuration["Roles"]);
-        var session = new CompositionSession(builder, definition, profile, roles, nodes);
-        builder.Properties.Add(typeof(CompositionSession), session);
+        var (definition, profile, roles, nodes) = resolve();
         try
         {
+            var session = new CompositionSession(builder, definition, profile, roles, nodes);
+            builder.Properties.Add(typeof(CompositionSession), session);
             var initialize = definition.IntegrationFactory ?? nodes.Select(n => n.IntegrationFactory).FirstOrDefault(f => f is not null);
             if (initialize is not null) session.AttachIntegration(initialize(session));
             session.ValidateDeclarations();

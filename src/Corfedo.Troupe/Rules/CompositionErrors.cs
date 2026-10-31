@@ -7,6 +7,7 @@ internal static class DiagnosticCodes
     internal const string CallbackFailure = "TRP017";
     internal const string Unfinalized = "TRP018";
     internal const string TestReplacementTarget = "TRP019";
+    internal const string OutsideProfile = "TRP020";
     internal const string UnappliedPipeline = "TRP105";
 }
 

@@ -4,7 +4,7 @@ namespace Corfedo.Troupe;
 
 internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
 {
-    internal Type DefinitionType = null!;
+    internal Type? DefinitionType;
     internal readonly Dictionary<string, RoleDefinition> Roles = new(StringComparer.Ordinal);
     internal readonly List<ProfileIdentity> Profiles = [];
     internal readonly List<ICompositionRule> Rules = [];
@@ -44,10 +44,12 @@ internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
     public ICompositionDefinitionBuilder Rule(ICompositionRule rule)
     { EnsureOpen(); ArgumentNullException.ThrowIfNull(rule); Rules.Add(rule); return this; }
 
-    internal static DefinitionBuilder Create<T>() where T : ICompositionDefinition, new()
+    internal static DefinitionBuilder Create<T>() where T : ICompositionDefinition, new() => Create(typeof(T), d => new T().Define(d));
+    // A null type denotes a definition recorded by test composition rather than an application definition class.
+    internal static DefinitionBuilder Create(Type? type, Action<ICompositionDefinitionBuilder> define)
     {
-        var definition = new DefinitionBuilder { DefinitionType = typeof(T) };
-        try { new T().Define(definition); }
+        var definition = new DefinitionBuilder { DefinitionType = type };
+        try { define(definition); }
         finally { definition.closed = true; }
         foreach (var profile in definition.Profiles)
             if (profile.Roles.Count == 0 || profile.Roles.Any(r => !definition.Roles.ContainsKey(r)))

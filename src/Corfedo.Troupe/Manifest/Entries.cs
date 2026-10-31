@@ -17,7 +17,7 @@ public enum OwnerKind
     Role,
     /// <summary>A shared component.</summary>
     Component,
-    /// <summary>Test-owned service overrides, named <c>test:&lt;name&gt;</c>.</summary>
+    /// <summary>Test-owned service overrides and test composition roots, named <c>test:&lt;name&gt;</c>.</summary>
     Test
 }
 /// <summary>Identifies the source of a declaration or mutation.</summary>
@@ -100,9 +100,9 @@ public sealed class CompositionManifest
     internal CompositionManifest WithDiagnostics(IEnumerable<CompositionDiagnostic> diagnostics) =>
         new(Profile, Roles, Contributors, Services, ServiceMutations, Configuration, Contributions,
             Array.AsReadOnly(diagnostics.Distinct(DiagnosticComparer.Instance).ToArray()));
-    /// <summary>Gets the selected profile, or null when the definition declares no profiles.</summary>
+    /// <summary>Gets the selected profile, or null when the definition declares no profiles or a test root replaces the selection.</summary>
     public ProfileIdentity? Profile { get; }
-    /// <summary>Gets the selected roles.</summary>
+    /// <summary>Gets the selected roles; empty when a test root replaces the selection.</summary>
     public IReadOnlyList<RoleIdentity> Roles { get; }
     /// <summary>Gets the canonical dependency-first execution order.</summary>
     public IReadOnlyList<ContributorEntry> Contributors { get; }

@@ -81,9 +81,9 @@ public interface IComposition
     bool Contains<TRole>() where TRole : IRole;
     /// <summary>Tests whether the component is composed in this process.</summary>
     bool Includes<TComponent>() where TComponent : IComponent;
-    /// <summary>Gets the selected profile, or null when the definition declares no profiles.</summary>
+    /// <summary>Gets the selected profile, or null when the definition declares no profiles or a test root replaces the selection.</summary>
     ProfileIdentity? Profile { get; }
-    /// <summary>Gets selected roles in ordinal name order.</summary>
+    /// <summary>Gets selected roles in ordinal name order; empty when a test root replaces the selection.</summary>
     IReadOnlyList<RoleIdentity> Roles { get; }
     /// <summary>Gets the last successfully validated immutable snapshot, including completed adapter and test boundaries.</summary>
     CompositionManifest Manifest { get; }

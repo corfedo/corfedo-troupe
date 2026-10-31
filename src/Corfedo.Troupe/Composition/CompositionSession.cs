@@ -30,7 +30,7 @@ internal sealed class CompositionSession
         configuration = builder.Configuration;
         ledger = new(builder.Services);
         rules = definition.Rules.ToArray();
-        Runtime = new(profile, Array.AsReadOnly(roles), nodes.Select(n => n.Owner.Type!).ToFrozenSet());
+        Runtime = new(profile, Array.AsReadOnly(roles), nodes.Where(n => n.Owner.Type is not null).Select(n => n.Owner.Type!).ToFrozenSet());
         contributors = Array.AsReadOnly(nodes.Select(n => new ContributorEntry(n.Owner,
             Array.AsReadOnly(n.Requirements.Keys.Select(t => nodes.Single(x => x.Owner.Type == t).Owner)
                 .OrderBy(o => o.Name, StringComparer.Ordinal).ToArray()))).ToArray());
@@ -38,7 +38,7 @@ internal sealed class CompositionSession
         ledger.Synchronize();
     }
 
-    internal Type DefinitionType { get; }
+    internal Type? DefinitionType { get; }
     internal RuntimeComposition Runtime { get; }
     internal CompositionPhase Phase { get; private set; } = CompositionPhase.Composing;
     internal IConfiguration Configuration => configuration ?? throw new InvalidOperationException("Registration is sealed.");

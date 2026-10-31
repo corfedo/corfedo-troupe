@@ -159,6 +159,25 @@ A factory may return the same definition already composed with adapters applied 
 cleanup failures are reported together. Lifecycle code never runs, but callbacks, Build, options and mapping
 can have effects: use inert overrides and isolation. Factory bodies and arbitrary services are not probed.
 
+A component slice composes a test-owned root instead of selected roles:
+
+```csharp
+builder.ComposeForTest<AppComposition>(root =>
+{
+    root.Requires<Storage>();
+    root.Services(services => services.AddSingleton<Probe>());
+}, name: "storage", withinProfile: "worker");
+// Apply application adapters here.
+builder.FinalizeComposition();
+```
+
+The root `test:<name>` declares like a role (`Requires`, `Services`, `Options`, `Contribute`, `Use`, `Endpoints`).
+It takes the definition's stages and rules and ignores its roles and profiles, so the manifest has no profile and
+no roles. The root follows every component it requires, so it runs last in each stage and registers after them.
+`ComposeForTest(root, stages)` composes without a definition. Composition does not finalize: apply adapters and call
+`FinalizeComposition` as production does. With `withinProfile`, a required component that the declared profile
+does not compose fails with TRP020.
+
 Tests that build a composed host themselves record their services as test-owned on any composed builder,
 before or after `FinalizeComposition`. `builder.TestServices(name, services => ...)` adds registrations
 owned by `test:<name>` under the ordinary ownership check: removing another owner's registration fails with
