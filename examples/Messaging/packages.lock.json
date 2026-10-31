@@ -354,7 +354,7 @@
       "corfedo.troupe.aspnetcore": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.0-alpha.1, )"
+          "Corfedo.Troupe": "[0.1.0-alpha.2, )"
         }
       },
       "Npgsql": {

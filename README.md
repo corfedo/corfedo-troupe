@@ -20,7 +20,18 @@ Troupe does not implement operations. Calls between roles, routing to another pr
 gRPC, serialization, caller identity and addresses belong to the application, which builds them on these
 facts. Troupe knows only what is composed in this process; "remote" means "not composed here".
 
-Reference the relevant project in `src/`; packages are not published. Use SDK 10.0.300:
+Install the packages from NuGet:
+
+```sh
+dotnet add package Corfedo.Troupe --prerelease
+dotnet add package Corfedo.Troupe.AspNetCore --prerelease
+dotnet add package Corfedo.Troupe.Testing --prerelease
+```
+
+Troupe is an alpha: APIs change between alpha versions. The three packages depend on each other's exact
+version, so update them together.
+
+Build the repository with SDK 10.0.300:
 
 ```sh
 dotnet build Corfedo.Troupe.slnx
