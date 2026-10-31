@@ -150,6 +150,17 @@ section once, with `reloadOnChange: false`, and attaches callbacks to it. The ap
 fails. Topology changes require restart; raw Kestrel calls remain untracked. Actual bind conflicts belong
 to Kestrel.
 
+Code listeners beside named endpoints use `UseHttps(HttpsConnectionAdapterOptions)`,
+`UseHttps(TlsHandshakeCallbackOptions)` or `UseHttps(ServerOptionsSelectionCallback, state)`. The other `UseHttps`
+overloads, including `UseHttps(X509Certificate2)` and `UseHttps(Action<HttpsConnectionAdapterOptions>)`, load the
+endpoint configuration immediately, so an endpoint callback attached after that listener would never run and the
+endpoint would keep Kestrel's defaults. Troupe detects this and fails with TRP106.
+
+```csharp
+builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 5443,
+    listen => listen.UseHttps(new HttpsConnectionAdapterOptions { ServerCertificate = certificate })));
+```
+
 ```csharp
 var result = await CompositionVerifier.VerifyProfilesAsync<AppComposition>(
     profile => CreateIsolatedBuilder(profile),
@@ -191,7 +202,34 @@ TRP003. `builder.ReplaceForTest<TService>(name, descriptor, key, owner)` replace
 in the type and key slot in place, so the manifest links the original to the replacement through `RemovedBy`
 and `ReplacedBy`. A missing target, or several registrations that the role or component type `owner` does not
 narrow to one, fails with TRP019, so a stale replacement cannot become a silent addition. The overload taking a
-`CompositionOwner` also selects an application-owned or test-owned target. The verifier's
+`CompositionOwner` also selects an application-owned or test-owned target.
+
+When one owner registers several descriptors in a slot, `builder.ReplaceForTest<TService>(name, descriptor, owner, match, key)`
+selects the target with a predicate over the owner's active descriptors, by role or component type or by
+`CompositionOwner`. Exactly one must match, independent of registration order; zero or several matches fail with
+TRP019, and the message gives the count and lists the matches, or the owner's candidates when none matched, with
+occurrence, service type, implementation type, instance or factory, lifetime and owner. A typed client configured
+twice for one name, for example, has two `IConfigureOptions<HttpClientFactoryOptions>`; this replaces the one that
+sets the primary handler:
+
+```csharp
+// The component: s.AddHttpClient<CatalogClient>("catalog")
+//     .ConfigureHttpClient(c => c.BaseAddress = catalogUri)
+//     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler());
+builder.ReplaceForTest<IConfigureOptions<HttpClientFactoryOptions>>("stub-handler",
+    ServiceDescriptor.Singleton<IConfigureOptions<HttpClientFactoryOptions>>(new ConfigureNamedOptions<HttpClientFactoryOptions>(
+        "catalog", options => options.HttpMessageHandlerBuilderActions.Add(b => b.PrimaryHandler = new StubHandler()))),
+    owner: typeof(CatalogComponent),
+    match: descriptor =>
+    {
+        if (descriptor.ImplementationInstance is not ConfigureNamedOptions<HttpClientFactoryOptions> { Name: "catalog" } configure) return false;
+        var probe = new HttpClientFactoryOptions();
+        configure.Configure("catalog", probe);
+        return probe.HttpMessageHandlerBuilderActions.Count > 0;
+    });
+```
+
+The verifier's
 overrides are also owned by `test:<profile>`; they may remove any owner's registrations. `TestServices(name)` and
 `ComposeForTest(name)` with the same name share the owner `test:<name>`. After Build the services are read-only, and
 both overrides fail with TRP016.

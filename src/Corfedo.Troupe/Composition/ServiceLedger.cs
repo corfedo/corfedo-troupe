@@ -98,13 +98,24 @@ internal sealed class ServiceLedger(IServiceCollection collection)
         finally { facade.Active = false; }
     }
     // Replaces the single active occurrence in the replacement's type and key slot at its index, regardless of its owner.
-    // The target filter narrows candidates by owner; narrowed describes it in diagnostics.
-    internal void Replace(CompositionOwner owner, ServiceDescriptor replacement, Func<CompositionOwner, bool>? target, string narrowed) => Configure(owner, services =>
+    // The target filter narrows candidates by owner; narrowed describes it in diagnostics. The optional descriptor predicate
+    // selects among the owner's candidates without depending on their order; its diagnostics list the candidates.
+    internal void Replace(CompositionOwner owner, ServiceDescriptor replacement, Func<CompositionOwner, bool>? target, string narrowed,
+        Func<ServiceDescriptor, bool>? match) => Configure(owner, services =>
     {
         var slot = $"{replacement.ServiceType}{(replacement.ServiceKey is null ? "" : $" (key {replacement.ServiceKey})")}";
-        var candidates = live.Select((occurrence, index) => (Occurrence: occurrence, Index: index))
+        var inSlot = live.Select((occurrence, index) => (Occurrence: occurrence, Index: index))
             .Where(c => c.Occurrence.Descriptor.ServiceType == replacement.ServiceType && Equals(c.Occurrence.Descriptor.ServiceKey, replacement.ServiceKey))
             .Where(c => target is null || target(c.Occurrence.Owner)).ToArray();
+        var candidates = match is null ? inSlot : inSlot.Where(c => match(c.Occurrence.Descriptor)).ToArray();
+        if (match is not null && candidates.Length != 1)
+        {
+            var listed = candidates.Length == 0 ? inSlot : candidates;
+            throw Errors.Fail(DiagnosticCodes.TestReplacementTarget, $"{owner.Name}: {candidates.Length} active registrations of service {slot}{narrowed} " +
+                $"match the predicate; exactly one must match. {(candidates.Length == 0 ? "Candidates" : "Matches")}: " +
+                $"{(listed.Length == 0 ? "none" : string.Join("; ", listed.Select(c => c.Occurrence.Describe())))}.",
+                [owner, .. listed.Select(c => c.Occurrence.Owner).Distinct()]);
+        }
         if (candidates.Length == 0)
             throw Errors.Fail(DiagnosticCodes.TestReplacementTarget, $"{owner.Name}: service {slot} has no active registration{narrowed} to replace.", owner);
         if (candidates.Length > 1)
@@ -136,6 +147,14 @@ internal sealed class ServiceLedger(IServiceCollection collection)
         internal CompositionOwner Owner { get; } = owner;
         internal CompositionOwner? RemovedBy;
         internal long? ReplacedBy;
+        internal string Describe()
+        {
+            var registration = Snapshot();
+            var implementation = registration.IsFactory ? "factory" :
+                (Descriptor.IsKeyedService ? Descriptor.KeyedImplementationInstance : Descriptor.ImplementationInstance) is { } instance ? $"instance of {instance.GetType()}" :
+                $"type {registration.ImplementationType}";
+            return $"occurrence {Id} {Descriptor.ServiceType} {implementation} {Descriptor.Lifetime} owned by {Owner.Name}";
+        }
         internal ServiceRegistration Snapshot()
         {
             var implementation = Descriptor.IsKeyedService ? Descriptor.KeyedImplementationType : Descriptor.ImplementationType;

@@ -32,14 +32,20 @@ public static class AspNetCompositionExtensions
         Record(contributor, (s, o) => s.Integration<WebComposition>().AddEndpoints(o, map));
     }
     /// <summary>Requires Kestrel:Endpoints:name. This declares topology; it does not configure TLS or bind an address.</summary>
-    /// <remarks>Troupe configures Kestrel's named endpoint loader from the Kestrel section without topology reload.</remarks>
+    /// <remarks>Troupe configures Kestrel's named endpoint loader from the Kestrel section without topology reload.
+    /// Code listeners beside named endpoints must use <c>UseHttps(HttpsConnectionAdapterOptions)</c>,
+    /// <c>UseHttps(TlsHandshakeCallbackOptions)</c> or <c>UseHttps(ServerOptionsSelectionCallback, state)</c>. The other UseHttps
+    /// overloads, including <c>UseHttps(X509Certificate2)</c> and <c>UseHttps(Action&lt;HttpsConnectionAdapterOptions&gt;)</c>,
+    /// load the endpoint configuration immediately, and an endpoint callback attached afterwards would never run; that fails
+    /// with TRP106.</remarks>
     public static void KestrelEndpoint(this IContributorBuilder contributor, string name)
     {
         EndpointName(name);
         Record(contributor, (s, o) => s.Integration<WebComposition>().Listeners.Require(s, name, o));
     }
     /// <summary>Requires Kestrel:Endpoints:name and owns its single callback, for example its TLS and client certificate policy.</summary>
-    /// <remarks>Runs only when this contributor is composed. A second owner, including the application, is rejected. Resolve DI through ListenOptions.ApplicationServices.</remarks>
+    /// <remarks>Runs only when this contributor is composed. A second owner, including the application, is rejected. Resolve DI through ListenOptions.ApplicationServices.
+    /// Code listeners must not load the endpoint configuration before the callback is attached; see the overload without a callback.</remarks>
     public static void KestrelEndpoint(this IContributorBuilder contributor, string name, Action<EndpointConfiguration> configure)
     {
         EndpointName(name); ArgumentNullException.ThrowIfNull(configure);

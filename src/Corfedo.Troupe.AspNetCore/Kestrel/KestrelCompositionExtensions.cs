@@ -8,7 +8,10 @@ namespace Corfedo.Troupe.AspNetCore;
 public static class KestrelCompositionExtensions
 {
     /// <summary>Registers one callback for a requested name, rejecting a second owner, including a contributor, before Kestrel can replace it.</summary>
-    /// <remarks>Applies to Troupe's named endpoint loader, which reads the Kestrel section without topology reload; the application does not call KestrelServerOptions.Configure. Raw ConfigureKestrel and Endpoint calls remain application-owned and untracked. Resolve DI through ListenOptions.ApplicationServices.</remarks>
+    /// <remarks>Applies to Troupe's named endpoint loader, which reads the Kestrel section without topology reload; the application does not call KestrelServerOptions.Configure. Raw ConfigureKestrel and Endpoint calls remain application-owned and untracked. Resolve DI through ListenOptions.ApplicationServices.
+    /// A code listener configured before this call must use <c>UseHttps(HttpsConnectionAdapterOptions)</c>, <c>UseHttps(TlsHandshakeCallbackOptions)</c>
+    /// or <c>UseHttps(ServerOptionsSelectionCallback, state)</c>: the other UseHttps overloads load the endpoint configuration before
+    /// this callback is attached, which fails with TRP106.</remarks>
     public static void ConfigureCompositionEndpoint(this WebApplicationBuilder builder, string name, Action<EndpointConfiguration> configure)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name); ArgumentNullException.ThrowIfNull(configure);

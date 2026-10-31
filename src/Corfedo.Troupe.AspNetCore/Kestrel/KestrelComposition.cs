@@ -20,15 +20,26 @@ internal sealed class KestrelComposition(IConfiguration configuration)
     }
     // Registered before any endpoint callback: configures the Kestrel section once without topology reload
     // and fails when a later KestrelServerOptions.Configure call replaces the loader and its callbacks.
+    // Each endpoint with a callback owner starts with a placeholder that its callback replaces; the placeholder runs only
+    // when the loader loads before the callback is attached, which would leave the endpoint with Kestrel's defaults.
     private void OwnLoader(CompositionSession session)
     {
         var owned = section;
         session.ConfigureServices(ServiceLedger.Application, services =>
         {
-            services.Configure<KestrelServerOptions>(options => options.Configure(owned, reloadOnChange: false));
+            services.Configure<KestrelServerOptions>(options =>
+            {
+                var loader = options.Configure(owned, reloadOnChange: false);
+                foreach (var (name, owner) in callbacks) loader.Endpoint(name, _ => throw EarlyLoad(name, owner));
+            });
             services.PostConfigure<KestrelServerOptions>(options => Loader(options, owned));
         });
     }
+    private static CompositionException EarlyLoad(string name, CompositionOwner owner) => Errors.Fail(DiagnosticCodes.EarlyKestrelLoad,
+        $"Kestrel loaded its endpoint configuration before the callback of endpoint {name} owned by {owner.Name} was attached, so the endpoint " +
+        "would keep Kestrel's defaults. A code listener configured earlier called a UseHttps overload that loads the configuration " +
+        "(UseHttps(), a certificate, file or store, or Action<HttpsConnectionAdapterOptions>); use UseHttps(HttpsConnectionAdapterOptions), " +
+        "UseHttps(TlsHandshakeCallbackOptions) or UseHttps(ServerOptionsSelectionCallback, state).", owner);
     internal Action<KestrelServerOptions> EndpointCallback(string name, Action<EndpointConfiguration> configure)
     {
         var owned = section;

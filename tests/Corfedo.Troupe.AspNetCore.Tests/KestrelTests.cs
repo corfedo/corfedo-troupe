@@ -130,6 +130,34 @@ public sealed class KestrelTests
         Assert.Equal(1, callbacks);
     }
     [Fact]
+    public async Task CodeListenerLoadingTheConfigurationBeforeAnEndpointCallbackFailsWithTrp106()
+    {
+        using var certificates = new Certificates();
+        var callbacks = 0;
+        A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));
+        var early = TlsBuilder(certificates); early.Compose<Definition>();
+        early.WebHost.ConfigureKestrel(o => o.Listen(IPAddress.Loopback, 0, l => l.UseHttps(certificates.Server)));
+        early.ConfigureCompositionEndpoint("public", _ => callbacks++);
+        early.FinalizeComposition();
+        var error = await Assert.ThrowsAsync<CompositionException>(async () =>
+        {
+            await using var app = early.Build(); app.UseComposition();
+            await app.StartAsync(TestContext.Current.CancellationToken);
+        });
+        var diagnostic = Assert.Single(error.Diagnostics);
+        Assert.Equal(("TRP106", OwnerKind.Application), (diagnostic.Code, Assert.Single(diagnostic.Owners).Kind));
+        Assert.Contains("endpoint public", diagnostic.Message);
+        Assert.Equal(0, callbacks);
+
+        var adapter = TlsBuilder(certificates); adapter.Compose<Definition>();
+        adapter.WebHost.ConfigureKestrel(o => o.Listen(IPAddress.Loopback, 0, l => l.UseHttps(new HttpsConnectionAdapterOptions { ServerCertificate = certificates.Server })));
+        adapter.ConfigureCompositionEndpoint("public", _ => callbacks++);
+        adapter.FinalizeComposition();
+        await using var started = adapter.Build(); started.UseComposition();
+        await started.StartAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, callbacks);
+    }
+    [Fact]
     public async Task OverlappingAddressBindsFailAtStartRatherThanFromNumericPortRules()
     {
         A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));
@@ -169,6 +197,7 @@ public sealed class KestrelTests
         private readonly RSA serverKey = RSA.Create(2048);
         private readonly RSA clientKey = RSA.Create(2048);
         private readonly X509Certificate2 server;
+        internal X509Certificate2 Server => server;
         internal readonly X509Certificate2 Client;
         internal string CertificatePath => Path.Combine(directory, "server.pem");
         internal string KeyPath => Path.Combine(directory, "server.key");

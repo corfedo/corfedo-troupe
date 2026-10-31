@@ -109,12 +109,13 @@ internal sealed class CompositionSession
         RequireWritableServices(owner);
         Invoke(owner, "test overrides", () => ledger!.Configure(owner, callback, privileged));
     }
-    internal void ReplaceForTest(string name, ServiceDescriptor replacement, Func<CompositionOwner, bool>? target, string narrowed)
+    internal void ReplaceForTest(string name, ServiceDescriptor replacement, Func<CompositionOwner, bool>? target, string narrowed,
+        Func<ServiceDescriptor, bool>? match = null)
     {
         RequirePhase(CompositionPhase.Configuring, CompositionPhase.Finalized);
         var owner = TestOwner(name);
         RequireWritableServices(owner);
-        Invoke(owner, "test replacement", () => ledger!.Replace(owner, replacement, target, narrowed));
+        Invoke(owner, "test replacement", () => ledger!.Replace(owner, replacement, target, narrowed, match));
     }
     private void RequireWritableServices(CompositionOwner owner)
     {

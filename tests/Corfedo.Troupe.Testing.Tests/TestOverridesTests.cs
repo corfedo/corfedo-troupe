@@ -1,8 +1,12 @@
+using System.Net;
+using System.Net.Http;
 using Corfedo.Troupe.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Corfedo.Troupe.Testing.Tests;
@@ -118,6 +122,82 @@ public sealed class TestOverridesTests
             builder.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Other>(), owner: typeof(A)));
         Assert.Contains(error.Diagnostics, d => d.Code == "TRP019" && d.Message.Contains("no active registration owned by"));
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PredicateReplacesTheTypedClientsPrimaryHandlerConfigurationIndependentOfOrder(bool handlerFirst)
+    {
+        A.Declare = r => r.Services(s =>
+        {
+            var client = s.AddHttpClient<Catalog>(Catalog.Name);
+            if (handlerFirst) client.ConfigurePrimaryHttpMessageHandler(() => new Unreachable());
+            client.ConfigureHttpClient(c => c.BaseAddress = new Uri("http://catalog.test/"));
+            if (!handlerFirst) client.ConfigurePrimaryHttpMessageHandler(() => new Unreachable());
+        });
+        var builder = Builder(); builder.Compose<Definition>();
+        var configurations = builder.Services.Where(IsCatalogConfiguration).ToList();
+        Assert.Equal(2, configurations.Count);
+        var target = Assert.Single(configurations, ConfiguresPrimaryHandler);
+        var index = builder.Services.IndexOf(target);
+        var stub = StubHandlerConfiguration();
+        builder.ReplaceForTest<IConfigureOptions<HttpClientFactoryOptions>>("fake", stub, typeof(A), ConfiguresPrimaryHandler);
+        var manifest = builder.FinalizeComposition();
+        Assert.Same(stub, builder.Services[index]);
+        var replacement = Assert.Single(manifest.Services, s => s.Owner == Fake);
+        Assert.True(replacement.Active);
+        var original = Assert.Single(manifest.Services, s => !s.Active && s.ServiceType == typeof(IConfigureOptions<HttpClientFactoryOptions>));
+        Assert.Equal((new CompositionOwner(OwnerKind.Role, "a", typeof(A)), Fake, replacement.Id), (original.Owner, original.RemovedBy, original.ReplacedBy));
+        Assert.Contains(manifest.ServiceMutations, m => m.Kind == ServiceMutationKind.Replace && m.Occurrence == original.Id && m.Replacement == replacement.Id && m.Accepted);
+        Assert.Equal(2, builder.Services.Count(IsCatalogConfiguration));
+        using var host = builder.Build();
+        var catalog = host.Services.GetRequiredService<Catalog>();
+        Assert.Equal("stub http://catalog.test/items", await catalog.Http.GetStringAsync("items", TestContext.Current.CancellationToken));
+    }
+    [Fact]
+    public void PredicateMatchingNoneOrSeveralFailsWithTrp019ListingTheCandidates()
+    {
+        A.Declare = r => r.Services(s => s.AddHttpClient<Catalog>(Catalog.Name)
+            .ConfigureHttpClient(c => c.BaseAddress = new Uri("http://catalog.test/"))
+            .ConfigurePrimaryHttpMessageHandler(() => new Unreachable()));
+        var none = Builder(); none.Compose<Definition>();
+        var error = Assert.Throws<CompositionException>(() =>
+            none.ReplaceForTest<IConfigureOptions<HttpClientFactoryOptions>>("fake", StubHandlerConfiguration(), typeof(A), _ => false));
+        var diagnostic = Assert.Single(error.Diagnostics, d => d.Code == "TRP019");
+        Assert.Contains("0 active registrations of service", diagnostic.Message);
+        Assert.Contains($"owned by {typeof(A).FullName}", diagnostic.Message);
+        Assert.Contains("Candidates: occurrence", diagnostic.Message);
+        Assert.Contains($"instance of {typeof(ConfigureNamedOptions<HttpClientFactoryOptions>)} Singleton owned by a", diagnostic.Message);
+        Assert.Equal([Fake, new(OwnerKind.Role, "a", typeof(A))], diagnostic.Owners);
+        Assert.DoesNotContain(error.Manifest!.Services, s => s.Owner == Fake);
+
+        var several = Builder(); several.Compose<Definition>();
+        error = Assert.Throws<CompositionException>(() =>
+            several.ReplaceForTest<IConfigureOptions<HttpClientFactoryOptions>>("fake", StubHandlerConfiguration(), typeof(A), IsCatalogConfiguration));
+        diagnostic = Assert.Single(error.Diagnostics, d => d.Code == "TRP019");
+        Assert.Contains("2 active registrations of service", diagnostic.Message);
+        Assert.Contains("Matches: occurrence", diagnostic.Message);
+        Assert.Equal(2, diagnostic.Message.Split("; occurrence").Length);
+        Assert.All(error.Manifest!.Services.Where(s => s.ServiceType == typeof(IConfigureOptions<HttpClientFactoryOptions>)), s => Assert.True(s.Active));
+    }
+    [Fact]
+    public void PredicateOnlySeesTheOwnersCandidatesAndListsFactoriesAndTypes()
+    {
+        A.Declare = r => r.Services(s => { s.AddSingleton<IValue, Original>(); s.AddScoped<IValue>(_ => new Other()); });
+        var builder = Builder(); builder.Services.AddSingleton<IValue, Other>(); builder.Compose<Definition>();
+        var error = Assert.Throws<CompositionException>(() =>
+            builder.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Replacement>(), typeof(A), d => d.ImplementationType == typeof(Other)));
+        var message = Assert.Single(error.Diagnostics, d => d.Code == "TRP019").Message;
+        Assert.Contains($"type {typeof(Original)} Singleton owned by a", message);
+        Assert.Contains("factory Scoped owned by a", message);
+        Assert.DoesNotContain("owned by application", message);
+
+        var application = Builder(); application.Services.AddSingleton<IValue, Other>(); application.Compose<Definition>();
+        application.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Replacement>(),
+            new CompositionOwner(OwnerKind.Application, "application"), d => d.ImplementationType == typeof(Other));
+        var manifest = application.FinalizeComposition();
+        Assert.Equal(Fake, Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Other)).RemovedBy);
+        Assert.True(Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Original)).Active);
+    }
     [Fact]
     public void TestServicesMayRemoveTheirOwnEarlierRegistration()
     {
@@ -137,6 +217,35 @@ public sealed class TestOverridesTests
         using var application = builder.Build(); application.UseComposition();
         var error = Assert.Throws<CompositionException>(() => builder.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Replacement>()));
         Assert.Equal("TRP016", Assert.Single(error.Diagnostics).Code);
+    }
+    private static bool IsCatalogConfiguration(ServiceDescriptor descriptor) =>
+        descriptor.ServiceType == typeof(IConfigureOptions<HttpClientFactoryOptions>) &&
+        descriptor.ImplementationInstance is ConfigureNamedOptions<HttpClientFactoryOptions> { Name: Catalog.Name };
+    // Applies the configuration to a probe: only the primary handler configuration adds a handler builder action.
+    private static bool ConfiguresPrimaryHandler(ServiceDescriptor descriptor)
+    {
+        if (!IsCatalogConfiguration(descriptor)) return false;
+        var probe = new HttpClientFactoryOptions();
+        ((IConfigureNamedOptions<HttpClientFactoryOptions>)descriptor.ImplementationInstance!).Configure(Catalog.Name, probe);
+        return probe.HttpMessageHandlerBuilderActions.Count > 0;
+    }
+    private static ServiceDescriptor StubHandlerConfiguration() =>
+        ServiceDescriptor.Singleton<IConfigureOptions<HttpClientFactoryOptions>>(new ConfigureNamedOptions<HttpClientFactoryOptions>(
+            Catalog.Name, options => options.HttpMessageHandlerBuilderActions.Add(b => b.PrimaryHandler = new Stub())));
+    public sealed class Catalog(HttpClient http)
+    {
+        internal const string Name = "catalog";
+        internal HttpClient Http { get; } = http;
+    }
+    private sealed class Stub : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent($"stub {request.RequestUri}") });
+    }
+    private sealed class Unreachable : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("The component's primary handler was not replaced.");
     }
     public sealed class Definition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<B>(); }

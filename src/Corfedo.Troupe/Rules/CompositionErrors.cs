@@ -9,6 +9,7 @@ internal static class DiagnosticCodes
     internal const string TestReplacementTarget = "TRP019";
     internal const string OutsideProfile = "TRP020";
     internal const string UnappliedPipeline = "TRP105";
+    internal const string EarlyKestrelLoad = "TRP106";
 }
 
 internal static class Errors
