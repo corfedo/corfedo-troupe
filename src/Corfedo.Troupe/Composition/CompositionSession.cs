@@ -97,11 +97,19 @@ internal sealed class CompositionSession
         }
         Validate();
     }
-    internal void ApplyTestOverrides(ProfileIdentity profile, Action<IServiceCollection> callback)
+    internal static CompositionOwner TestOwner(string name) => new(OwnerKind.Test, $"test:{name}");
+    // Privileged overrides (the profile verifier's) may remove any owner's registrations; ordinary ones are checked like contributors.
+    internal void ApplyTestOverrides(string name, Action<IServiceCollection> callback, bool privileged)
     {
         RequirePhase(CompositionPhase.Configuring, CompositionPhase.Finalized);
-        var owner = new CompositionOwner(OwnerKind.Test, $"test:{profile.Name}");
-        Invoke(owner, "test overrides", () => ledger!.Configure(owner, callback, privileged: true));
+        var owner = TestOwner(name);
+        Invoke(owner, "test overrides", () => ledger!.Configure(owner, callback, privileged));
+    }
+    internal void ReplaceForTest(string name, ServiceDescriptor replacement, Type? ownerType)
+    {
+        RequirePhase(CompositionPhase.Configuring, CompositionPhase.Finalized);
+        var owner = TestOwner(name);
+        Invoke(owner, "test replacement", () => ledger!.Replace(owner, replacement, ownerType));
     }
     internal void ResolveDeclaredOptions(IServiceProvider services, CancellationToken cancellationToken)
     {

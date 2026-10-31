@@ -50,7 +50,7 @@ public static class CompositionVerifier
                     builder.Configuration["Profile"] = profile.Name;
                     builder.Compose<T>(); session = CompositionSession.Get(builder);
                 }
-                if (overrides is not null) session.ApplyTestOverrides(profile, services => overrides(profile, services));
+                if (overrides is not null) session.ApplyTestOverrides(profile.Name, services => overrides(profile, services), privileged: true);
                 session.FinalizeComposition();
                 host = builder switch
                 {

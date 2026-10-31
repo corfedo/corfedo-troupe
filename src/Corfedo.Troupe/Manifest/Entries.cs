@@ -17,7 +17,7 @@ public enum OwnerKind
     Role,
     /// <summary>A shared component.</summary>
     Component,
-    /// <summary>Explicit post-composition test overrides.</summary>
+    /// <summary>Test-owned service overrides, named <c>test:&lt;name&gt;</c>.</summary>
     Test
 }
 /// <summary>Identifies the source of a declaration or mutation.</summary>

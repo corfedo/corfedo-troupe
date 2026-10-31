@@ -60,7 +60,7 @@ public sealed class VerifierTests
         Assert.True(result.Succeeded, result.ToString());
         var manifest = result.Profiles.Single(p => p.Profile.Name == "a").Manifest!;
         var original = Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Original));
-        Assert.False(original.Active); Assert.Equal(OwnerKind.Test, original.RemovedBy!.Kind);
+        Assert.False(original.Active); Assert.Equal(new CompositionOwner(OwnerKind.Test, "test:a"), original.RemovedBy);
         var replacement = Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Replacement));
         Assert.Equal(OwnerKind.Test, replacement.Owner.Kind);
         Assert.Contains(manifest.ServiceMutations, m => m.Occurrence == original.Id && m.Owner.Kind == OwnerKind.Test && m.Accepted);

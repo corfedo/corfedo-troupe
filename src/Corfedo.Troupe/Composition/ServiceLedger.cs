@@ -43,6 +43,22 @@ internal sealed class ServiceLedger(IServiceCollection collection)
         try { callback(facade); }
         finally { facade.Active = false; }
     }
+    // Replaces the single active occurrence in the replacement's type and key slot at its index, regardless of its owner.
+    internal void Replace(CompositionOwner owner, ServiceDescriptor replacement, Type? ownerType) => Configure(owner, services =>
+    {
+        var slot = $"{replacement.ServiceType}{(replacement.ServiceKey is null ? "" : $" (key {replacement.ServiceKey})")}";
+        var candidates = live.Select((occurrence, index) => (Occurrence: occurrence, Index: index))
+            .Where(c => c.Occurrence.Descriptor.ServiceType == replacement.ServiceType && Equals(c.Occurrence.Descriptor.ServiceKey, replacement.ServiceKey))
+            .Where(c => ownerType is null || c.Occurrence.Owner.Type == ownerType).ToArray();
+        var narrowed = ownerType is null ? "" : $" owned by {ownerType.FullName}";
+        if (candidates.Length == 0)
+            throw Errors.Fail(DiagnosticCodes.TestReplacementTarget, $"{owner.Name}: service {slot} has no active registration{narrowed} to replace.", owner);
+        if (candidates.Length > 1)
+            throw Errors.Fail(DiagnosticCodes.TestReplacementTarget, $"{owner.Name}: service {slot} has {candidates.Length} active registrations{narrowed} " +
+                $"from {string.Join(", ", candidates.Select(c => c.Occurrence.Owner.Name).Distinct())}; select one owner.",
+                [owner, .. candidates.Select(c => c.Occurrence.Owner).Distinct()]);
+        services[candidates[0].Index] = replacement;
+    }, privileged: true);
     internal ServiceRegistration[] Registrations() => history.Select(o => o.Snapshot()).ToArray();
     internal ServiceMutation[] Mutations() => mutations.ToArray();
     private Occurrence Create(ServiceDescriptor descriptor, CompositionOwner owner)

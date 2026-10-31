@@ -159,6 +159,15 @@ A factory may return the same definition already composed with adapters applied 
 cleanup failures are reported together. Lifecycle code never runs, but callbacks, Build, options and mapping
 can have effects: use inert overrides and isolation. Factory bodies and arbitrary services are not probed.
 
+Tests that build a composed host themselves record their services as test-owned on any composed builder,
+before or after `FinalizeComposition`. `builder.TestServices(name, services => ...)` adds registrations
+owned by `test:<name>` under the ordinary ownership check: removing another owner's registration fails with
+TRP003. `builder.ReplaceForTest<TService>(name, descriptor, key, owner)` replaces the one active registration
+in the type and key slot in place, so the manifest links the original to the replacement through `RemovedBy`
+and `ReplacedBy`. A missing target, or several registrations that the role or component type `owner` does not
+narrow to one, fails with TRP019, so a stale replacement cannot become a silent addition. The verifier's
+overrides are also owned by `test:<profile>`; they may remove any owner's registrations.
+
 Provenance covers synchronous mutations through the supplied IServiceCollection; do not retain it.
 Suppressed TryAdd attempts and external mutations cannot be attributed to contributors. Service duplicates
 are advisory unless explicitly exclusive. Known hosted duplicates, foreign removals and duplicate endpoint
