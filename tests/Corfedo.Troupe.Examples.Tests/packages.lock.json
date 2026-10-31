@@ -532,26 +532,26 @@
       "corfedo.troupe.aspnetcore": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.0-alpha.3, )"
+          "Corfedo.Troupe": "[0.1.0-alpha.4, )"
         }
       },
       "corfedo.troupe.testing": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.0-alpha.3, )",
-          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.3, )"
+          "Corfedo.Troupe": "[0.1.0-alpha.4, )",
+          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.4, )"
         }
       },
       "incompletemessagingartifact": {
         "type": "Project",
         "dependencies": {
-          "Messaging": "[0.1.0-alpha.3, )"
+          "Messaging": "[0.1.0-alpha.4, )"
         }
       },
       "messaging": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.3, )",
+          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.4, )",
           "WolverineFx": "[6.41.0, )",
           "WolverineFx.Postgresql": "[6.41.0, )",
           "WolverineFx.RuntimeCompilation": "[6.41.0, )"
@@ -560,19 +560,19 @@
       "operations": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.3, )"
+          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.4, )"
         }
       },
       "web": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.3, )"
+          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.4, )"
         }
       },
       "worker": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.0-alpha.3, )"
+          "Corfedo.Troupe": "[0.1.0-alpha.4, )"
         }
       },
       "WolverineFx": {
