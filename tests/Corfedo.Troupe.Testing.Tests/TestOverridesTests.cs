@@ -84,6 +84,17 @@ public sealed class TestOverridesTests
         Assert.Equal(Fake, Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Other)).RemovedBy);
         Assert.True(Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Original)).Active);
     }
+    [Fact]
+    public void OverridesAfterBuildFailWithTrp016WithoutRecordingAnOccurrence()
+    {
+        A.Declare = r => r.Services(s => s.AddSingleton<IValue, Original>());
+        var builder = Builder(); builder.Compose<Definition>(); builder.FinalizeComposition();
+        using var host = builder.Build();
+        var error = Assert.Throws<CompositionException>(() => builder.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Replacement>()));
+        Assert.Equal("TRP016", Assert.Single(error.Diagnostics).Code);
+        Assert.DoesNotContain(error.Manifest!.Services, s => s.Owner.Kind == OwnerKind.Test);
+        Assert.True(Assert.Single(error.Manifest.Services, s => s.ImplementationType == typeof(Original)).Active);
+    }
     public sealed class Definition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<B>(); }
     [Role("a")] public sealed class A : IRole

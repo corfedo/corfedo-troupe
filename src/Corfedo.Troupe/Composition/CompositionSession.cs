@@ -104,13 +104,20 @@ internal sealed class CompositionSession
     {
         RequirePhase(CompositionPhase.Configuring, CompositionPhase.Finalized);
         var owner = TestOwner(name);
+        RequireWritableServices(owner);
         Invoke(owner, "test overrides", () => ledger!.Configure(owner, callback, privileged));
     }
     internal void ReplaceForTest(string name, ServiceDescriptor replacement, Type? ownerType)
     {
         RequirePhase(CompositionPhase.Configuring, CompositionPhase.Finalized);
         var owner = TestOwner(name);
+        RequireWritableServices(owner);
         Invoke(owner, "test replacement", () => ledger!.Replace(owner, replacement, ownerType));
+    }
+    private void RequireWritableServices(CompositionOwner owner)
+    {
+        if (ledger!.IsReadOnly) throw Fail(DiagnosticCodes.InvalidPhase,
+            $"{owner.Name}: the host is built and its services are read-only; apply test overrides before Build.", owner);
     }
     internal void ResolveDeclaredOptions(IServiceProvider services, CancellationToken cancellationToken)
     {
@@ -150,7 +157,8 @@ internal sealed class CompositionSession
     {
         EnsureUsable();
         if (Phase is CompositionPhase.Starting or CompositionPhase.Started) return Runtime.Manifest;
-        ledger!.Synchronize();
+        try { ledger!.Synchronize(); }
+        catch (CompositionException exception) { throw RecordFailure(exception.Diagnostics, exception); }
         CompositionManifest manifest;
         try { manifest = EvaluateRules(finalizing); }
         catch (CompositionException exception) { throw RecordFailure(exception.Diagnostics, exception); }
@@ -200,7 +208,8 @@ internal sealed class CompositionSession
     {
         if (failure is not null) return failure;
         failures.AddRange(diagnostics);
-        if (manifest is null) ledger?.Synchronize();
+        if (manifest is null) ledger?.Observe();
+        if (ledger is not null) failures.AddRange(ledger.TakeViolations());
         manifest = (manifest ?? CreateSnapshot()).WithDiagnostics((manifest?.Diagnostics ?? []).Concat(failures));
         failedIntegrationSnapshot = integration?.Snapshot();
         failure = new(manifest.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToArray(), manifest, innerException);

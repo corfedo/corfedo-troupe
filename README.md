@@ -190,12 +190,20 @@ TRP003. `builder.ReplaceForTest<TService>(name, descriptor, key, owner)` replace
 in the type and key slot in place, so the manifest links the original to the replacement through `RemovedBy`
 and `ReplacedBy`. A missing target, or several registrations that the role or component type `owner` does not
 narrow to one, fails with TRP019, so a stale replacement cannot become a silent addition. The verifier's
-overrides are also owned by `test:<profile>`; they may remove any owner's registrations.
+overrides are also owned by `test:<profile>`; they may remove any owner's registrations. `TestServices(name)` and
+`ComposeForTest(name)` with the same name share the owner `test:<name>`. After Build the services are read-only, and
+both overrides fail with TRP016.
 
 Provenance covers synchronous mutations through the supplied IServiceCollection; do not retain it.
-A contribution owns the registrations its callback adds synchronously to the builder's service collection, recorded
-as the net change of the callback; removing another owner's registration there fails with TRP003. Registrations an
-adapter makes outside the callbacks, such as the library's own services, are application-owned.
+A contribution owns the registrations its callback adds synchronously to the builder's service collection, including
+those made before or after validation or a nested `ApplyContributions` inside the callback. The manifest records the
+net change of the callback: a replacement inside it appears as an Add and a Remove, with no `ReplacedBy` link, and a
+registration added and removed again leaves no record. When one descriptor instance occurs more than once, a removal
+is matched to the acting contributor's own occurrence first. Removing or replacing another owner's registration from
+a callback, including an adapter's or the host's, fails with TRP003, also when the callback then throws; check
+existing contributions for such removals when upgrading. A contribution that adds a service type the host or adapter
+also registers raises the TRP001 duplicate advisory. Registrations an adapter makes outside the callbacks, such as the
+library's own services, are application-owned.
 Suppressed TryAdd attempts and other external mutations cannot be attributed to contributors. Service duplicates
 are advisory unless explicitly exclusive. Known hosted duplicates, foreign removals and duplicate endpoint
 names are errors. Route overlap diagnostics are bounded candidates considering order, precedence, methods,

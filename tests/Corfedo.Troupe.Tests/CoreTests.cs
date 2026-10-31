@@ -240,6 +240,91 @@ public sealed class CoreTests
         Assert.Equal([new CompositionOwner(OwnerKind.Role, "a", typeof(A)), ServiceLedgerApplication], diagnostic.Owners);
         Assert.Equal("a", Assert.Single(error.Manifest!.Services, s => s.ServiceType == typeof(Foo)).RemovedBy!.Name);
     }
+    [Fact]
+    public void NestedContributionsAndValidationKeepTheOuterContributorsAttribution()
+    {
+        HostApplicationBuilder builder = null!;
+        A.Declare = r => r.Contribute<ServicesTarget>(t =>
+        {
+            t.Services.AddSingleton<Foo>();
+            builder.ApplyContributions(new OtherTarget(t.Services));
+            t.Services.AddSingleton<Bar>();
+        });
+        B.Declare = r => r.Contribute<OtherTarget>(t => t.Services.AddKeyedSingleton<Client>("k"));
+        builder = Builder(); builder.Compose<Definition>();
+        builder.ApplyContributions(new ServicesTarget(builder.Services));
+        var manifest = builder.FinalizeComposition();
+        var a = new CompositionOwner(OwnerKind.Role, "a", typeof(A));
+        Assert.Equal(a, Assert.Single(manifest.Services, s => s.ServiceType == typeof(Foo)).Owner);
+        Assert.Equal(a, Assert.Single(manifest.Services, s => s.ServiceType == typeof(Bar)).Owner);
+        var keyed = Assert.Single(manifest.Services, s => s.ServiceType == typeof(Client));
+        Assert.Equal("k", keyed.Key); Assert.Equal(new CompositionOwner(OwnerKind.Role, "b", typeof(B)), keyed.Owner);
+    }
+    [Fact]
+    public void AForeignRemovalBeforeANestedContributionFailsWithTrp003()
+    {
+        HostApplicationBuilder builder = null!;
+        A.Declare = r => r.Contribute<ServicesTarget>(t =>
+        {
+            t.Services.RemoveAll<Foo>();
+            builder.ApplyContributions(new OtherTarget(t.Services));
+        });
+        B.Declare = r => r.Contribute<OtherTarget>(_ => { });
+        builder = Builder(); builder.Compose<Definition>();
+        builder.Services.AddSingleton<Foo>();
+        var error = Assert.Throws<CompositionException>(() => builder.ApplyContributions(new ServicesTarget(builder.Services)));
+        Assert.Contains(error.Diagnostics, d => d.Code == "TRP003" && d.Owners[0].Name == "a");
+        Assert.Equal("a", Assert.Single(error.Manifest!.Services, s => s.ServiceType == typeof(Foo)).RemovedBy!.Name);
+    }
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ASharedDescriptorRemovalMatchesTheActingOwnersOccurrence(bool applicationFirst)
+    {
+        var shared = ServiceDescriptor.Singleton<Foo, Foo>();
+        A.Declare = r =>
+        {
+            r.Contribute<ServicesTarget>(t => t.Services.Add(shared));
+            r.Contribute<OtherTarget>(t => t.Services.Remove(shared));
+        };
+        var builder = Builder("a"); builder.Compose<Definition>();
+        if (applicationFirst) builder.Services.Add(shared);
+        builder.ApplyContributions(new ServicesTarget(builder.Services));
+        if (!applicationFirst) builder.Services.Add(shared);
+        builder.ApplyContributions(new OtherTarget(builder.Services));
+        var manifest = builder.FinalizeComposition();
+        var occurrences = manifest.Services.Where(s => s.ServiceType == typeof(Foo)).ToArray();
+        Assert.Equal(2, occurrences.Length);
+        Assert.True(Assert.Single(occurrences, o => o.Owner.Kind == OwnerKind.Application).Active);
+        Assert.Equal("a", Assert.Single(occurrences, o => o.Owner.Name == "a").RemovedBy!.Name);
+    }
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ASharedDescriptorRemovalByAnotherContributorFailsInEitherOrder(bool applicationFirst)
+    {
+        var shared = ServiceDescriptor.Singleton<Foo, Foo>();
+        A.Declare = r => r.Contribute<ServicesTarget>(t => t.Services.Add(shared));
+        B.Declare = r => r.Contribute<OtherTarget>(t => t.Services.Remove(shared));
+        var builder = Builder(); builder.Compose<Definition>();
+        if (applicationFirst) builder.Services.Add(shared);
+        builder.ApplyContributions(new ServicesTarget(builder.Services));
+        if (!applicationFirst) builder.Services.Add(shared);
+        var error = Assert.Throws<CompositionException>(() => builder.ApplyContributions(new OtherTarget(builder.Services)));
+        Assert.Contains(error.Diagnostics, d => d.Code == "TRP003" && d.Owners[0].Name == "b");
+    }
+    [Fact]
+    public void AContributionThatThrowsAfterAForeignRemovalReportsTrp003WithTrp017()
+    {
+        A.Declare = r => r.Contribute<ServicesTarget>(t => { t.Services.RemoveAll<Foo>(); throw new InvalidOperationException("adapter failed"); });
+        var builder = Builder("a"); builder.Compose<Definition>();
+        builder.Services.AddSingleton<Foo>();
+        var error = Assert.Throws<CompositionException>(() => builder.ApplyContributions(new ServicesTarget(builder.Services)));
+        Assert.Equal(["TRP017", "TRP003"], error.Diagnostics.Select(d => d.Code));
+        Assert.Equal("adapter failed", error.InnerException!.Message);
+        Assert.Contains(error.Manifest!.Diagnostics, d => d.Code == "TRP003");
+    }
+    public sealed class OtherTarget(IServiceCollection services) { public IServiceCollection Services { get; } = services; }
     private static readonly CompositionOwner ServiceLedgerApplication = new(OwnerKind.Application, "application");
     public sealed class ServicesTarget(IServiceCollection services) { public IServiceCollection Services { get; } = services; }
     [Fact]

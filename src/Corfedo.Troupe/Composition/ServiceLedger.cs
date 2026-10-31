@@ -12,15 +12,42 @@ internal sealed class ServiceLedger(IServiceCollection collection)
     private readonly List<ServiceMutation> mutations = [];
     private long sequence;
 
-    internal void Synchronize() => Synchronize(Application, guard: false);
+    private readonly Stack<CompositionOwner> attribution = new();
+    private readonly List<CompositionDiagnostic> violations = [];
+    private CompositionOwner Current => attribution.Count > 0 ? attribution.Peek() : Application;
+    internal bool IsReadOnly => services.IsReadOnly;
 
-    // Attributes collection changes made since the last synchronization to owner. A contributor's removal of another owner's
-    // occurrence has already happened, so it is recorded as accepted and then fails with TRP003 when guarded.
-    private void Synchronize(CompositionOwner owner, bool guard)
+    // Credits collection changes made since the last synchronization to the current attribution owner: the innermost contribution
+    // callback, otherwise the application. A contributor's removal of another owner's occurrence has already happened, so it is
+    // recorded as accepted and fails with TRP003.
+    internal void Synchronize() => Synchronize(guard: true);
+    // Records changes for a failure snapshot; a foreign removal is kept for TakeViolations instead of thrown.
+    internal void Observe() => Synchronize(guard: false);
+    internal CompositionDiagnostic[] TakeViolations() { var taken = violations.ToArray(); violations.Clear(); return taken; }
+
+    private void Synchronize(bool guard)
     {
+        var owner = Current;
         var observed = owner == Application;
-        var available = live.GroupBy<Occurrence, ServiceDescriptor>(o => o.Descriptor, ReferenceEqualityComparer.Instance)
-            .ToDictionary(g => g.Key, g => new Queue<Occurrence>(g), (IEqualityComparer<ServiceDescriptor>)ReferenceEqualityComparer.Instance);
+        var counts = new Dictionary<ServiceDescriptor, int>(ReferenceEqualityComparer.Instance);
+        foreach (var descriptor in services) counts[descriptor] = counts.GetValueOrDefault(descriptor) + 1;
+        var available = new Dictionary<ServiceDescriptor, Queue<Occurrence>>(ReferenceEqualityComparer.Instance);
+        var removed = new List<Occurrence>();
+        foreach (var group in live.GroupBy<Occurrence, ServiceDescriptor>(o => o.Descriptor, ReferenceEqualityComparer.Instance))
+        {
+            // Occurrences of one descriptor instance are indistinguishable in the collection; a removal is matched to the acting
+            // owner's own occurrences first, latest first.
+            var occurrences = group.ToList();
+            var surplus = occurrences.Count - counts.GetValueOrDefault(group.Key);
+            if (surplus > 0)
+            {
+                var victims = Enumerable.Reverse(occurrences).Where(o => o.Owner == owner)
+                    .Concat(Enumerable.Reverse(occurrences).Where(o => o.Owner != owner)).Take(surplus).ToHashSet();
+                removed.AddRange(occurrences.Where(victims.Contains));
+                occurrences.RemoveAll(victims.Contains);
+            }
+            available.Add(group.Key, new Queue<Occurrence>(occurrences));
+        }
         var current = new List<Occurrence>();
         foreach (var descriptor in services)
         {
@@ -33,27 +60,34 @@ internal sealed class ServiceLedger(IServiceCollection collection)
                 current.Add(added);
             }
         }
-        var foreign = new List<Occurrence>();
-        foreach (var removed in available.Values.SelectMany(q => q))
+        foreach (var occurrence in removed)
         {
-            removed.RemovedBy = owner;
-            Event(observed ? ServiceMutationKind.ApplicationChange : ServiceMutationKind.Remove, owner, removed, null, true);
-            if (!observed && removed.Owner != owner) foreign.Add(removed);
+            occurrence.RemovedBy = owner;
+            Event(observed ? ServiceMutationKind.ApplicationChange : ServiceMutationKind.Remove, owner, occurrence, null, true);
         }
         live.Clear(); live.AddRange(current);
-        if (guard && foreign.Count > 0)
-            throw Errors.Fail("TRP003", string.Join(" ", foreign.Select(f =>
+        var foreign = observed ? [] : removed.Where(r => r.Owner != owner).ToArray();
+        if (foreign.Length == 0) return;
+        var diagnostic = new CompositionDiagnostic("TRP003", DiagnosticSeverity.Error, string.Join(" ", foreign.Select(f =>
                 $"{owner.Name} cannot Remove service {f.Descriptor.ServiceType} occurrence {f.Id} owned by {f.Owner.Name}.")),
-                [owner, .. foreign.Select(f => f.Owner).Distinct()]);
+            Array.AsReadOnly<CompositionOwner>([owner, .. foreign.Select(f => f.Owner).Distinct()]));
+        if (guard) throw new CompositionException([diagnostic]);
+        violations.Add(diagnostic);
     }
 
-    // Attributes registrations a callback makes directly on the builder's collection to the callback's owner.
+    // Attributes registrations a callback makes directly on the builder's collection to the callback's owner, including those
+    // synchronized by validation or nested contributions reached from inside the callback.
     internal void Attribute(CompositionOwner owner, Action callback)
     {
         Synchronize();
-        try { callback(); }
-        catch { Synchronize(owner, guard: false); throw; }
-        Synchronize(owner, guard: true);
+        attribution.Push(owner);
+        try
+        {
+            try { callback(); }
+            catch { Observe(); throw; }
+            Synchronize();
+        }
+        finally { attribution.Pop(); }
     }
 
     internal void Configure(CompositionOwner owner, Action<IServiceCollection> callback, bool privileged = false)
@@ -125,8 +159,9 @@ internal sealed class ServiceLedger(IServiceCollection collection)
                 EnsureActive(); ArgumentNullException.ThrowIfNull(value);
                 var old = ledger.live[index];
                 ledger.Guard(owner, privileged, old, ServiceMutationKind.Replace);
+                ledger.services[index] = value;
                 var added = ledger.Create(value, owner);
-                ledger.services[index] = value; ledger.live[index] = added;
+                ledger.live[index] = added;
                 old.RemovedBy = owner; old.ReplacedBy = added.Id;
                 ledger.Event(ServiceMutationKind.Replace, owner, old, added, true);
             }
@@ -142,7 +177,10 @@ internal sealed class ServiceLedger(IServiceCollection collection)
         }
         public bool Remove(ServiceDescriptor item)
         {
-            EnsureActive(); var index = ledger.services.IndexOf(item);
+            EnsureActive();
+            // Prefer the acting owner's occurrence when one descriptor instance occurs more than once.
+            var index = ledger.live.FindIndex(o => ReferenceEquals(o.Descriptor, item) && o.Owner == owner);
+            if (index < 0) index = ledger.services.IndexOf(item);
             if (index < 0) return false;
             RemoveCore(index, ServiceMutationKind.Remove); return true;
         }
