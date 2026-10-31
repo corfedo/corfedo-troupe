@@ -7,7 +7,6 @@ public static class WebExample
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         { Args = args, ContentRootPath = contentRootPath ?? AppContext.BaseDirectory });
         builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
-        builder.WebHost.ConfigureKestrel(options => options.Configure(builder.Configuration.GetSection("Kestrel"), reloadOnChange: false));
         builder.Compose<WebComposition>();
         return builder;
     }

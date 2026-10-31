@@ -67,6 +67,69 @@ public sealed class KestrelTests
         Assert.Throws<CompositionException>(() => tracked.FinalizeComposition());
     }
     [Fact]
+    public async Task ContributorOwnedCallbackRunsWithDiOnlyWhenItsOwnerIsComposed()
+    {
+        using var certificates = new Certificates();
+        var trust = new Trust(certificates.Client.Thumbprint);
+        var owned = 0; var unselected = 0;
+        A.Declare = r =>
+        {
+            r.Services(s => s.AddSingleton(trust)); r.Endpoints(e => e.MapGet("/", () => "secure"));
+            r.KestrelEndpoint("public", endpoint =>
+            {
+                owned++;
+                var resolved = endpoint.ListenOptions.ApplicationServices.GetRequiredService<Trust>();
+                endpoint.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                endpoint.HttpsOptions.ClientCertificateValidation = (cert, _, _) => resolved.Admits(cert);
+            });
+        };
+        B.Declare = r => r.KestrelEndpoint("internal", _ => unselected++);
+        var builder = TlsBuilder(certificates); builder.Compose<Definition>();
+        await using var app = builder.Build(); app.UseComposition();
+        var endpoint = Assert.Single(app.Services.GetRequiredService<IComposition>().AspNetCore().KestrelEndpoints);
+        Assert.Equal(("public", OwnerKind.Role, "a"), (endpoint.Name, endpoint.CallbackOwner!.Kind, endpoint.CallbackOwner.Name));
+        await app.StartAsync(TestContext.Current.CancellationToken);
+        Assert.Equal((1, 0), (owned, unselected));
+        using var admitted = certificates.HttpClient(app, withClient: true);
+        Assert.Equal("secure", await admitted.GetStringAsync("/", TestContext.Current.CancellationToken));
+        Assert.True(trust.Calls > 0);
+        using var anonymous = certificates.HttpClient(app, withClient: false);
+        await Assert.ThrowsAsync<HttpRequestException>(() => anonymous.GetAsync("/", TestContext.Current.CancellationToken));
+    }
+    [Fact]
+    public void SecondCallbackOwnerIsRejectedForContributorsAndTheApplication()
+    {
+        A.Declare = r => r.KestrelEndpoint("public", _ => { });
+        B.Declare = r => r.KestrelEndpoint("public", _ => { });
+        var contributors = Assert.Throws<CompositionException>(() => Builder("a,b").Compose<Definition>());
+        var diagnostic = Assert.Single(contributors.Diagnostics);
+        Assert.Equal(("TRP104", "b"), (diagnostic.Code, Assert.Single(diagnostic.Owners).Name));
+        Assert.Contains("callback owner a", diagnostic.Message);
+        var application = Builder("a"); application.Compose<Definition>();
+        Assert.Contains("TRP104", Assert.Throws<CompositionException>(() => application.ConfigureCompositionEndpoint("public", _ => { })).Message);
+    }
+    [Fact]
+    public async Task ApplicationLoaderReplacementAfterCompositionFailsAtBuildInsteadOfDroppingCallbacks()
+    {
+        var callbacks = 0;
+        A.Declare = r => { r.KestrelEndpoint("public", _ => callbacks++); r.Endpoints(e => e.MapGet("/", () => "ok")); };
+        var builder = Builder("a");
+        builder.WebHost.ConfigureKestrel(o => o.Configure(builder.Configuration.GetSection("Kestrel"), reloadOnChange: true));
+        builder.Compose<Definition>();
+        await using (var app = builder.Build())
+        {
+            app.UseComposition(); await app.StartAsync(TestContext.Current.CancellationToken);
+            using var client = Client(app);
+            Assert.Equal("ok", await client.GetStringAsync("/", TestContext.Current.CancellationToken));
+            Assert.Equal(1, callbacks);
+        }
+        var replaced = Builder("a"); replaced.Compose<Definition>();
+        replaced.WebHost.ConfigureKestrel(o => o.Configure(replaced.Configuration.GetSection("Kestrel"), reloadOnChange: false));
+        var error = Assert.Throws<InvalidOperationException>(() => replaced.Build());
+        Assert.Contains("named endpoint loader was replaced", error.Message);
+        Assert.Equal(1, callbacks);
+    }
+    [Fact]
     public async Task OverlappingAddressBindsFailAtStartRatherThanFromNumericPortRules()
     {
         A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));

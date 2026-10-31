@@ -63,6 +63,7 @@ a set. Dependencies precede dependents; ordinal names break ready-node ties. Dec
 exact supported sets, with no opt-out. Without profiles, any nonempty known role set is accepted.
 Stateless, parameterless definitions only declare: no I/O or resource acquisition. Recorded callbacks
 execute after graph validation. Runtime consumers inject `IComposition` for membership and snapshots.
+`Includes<TComponent>()` reports whether a component is composed in this process, available from Build on.
 
 Keep `ValidateOnBuild` and `ValidateScopes` enabled, as the examples do. Finalize after adapters and
 before Build to capture application registrations and reject unconsumed contributions. This early call is
@@ -76,6 +77,9 @@ session. Completed declaration and execution callbacks are released when their w
 ValidateOnStart. A second declaration is an error. `Options<T,TValidator>` explicitly registers a
 DI-constructed validator; additional validators compose through DI. `ReadsConfiguration` records manual
 section intent. Required absence fails composition and is also validated at Value resolution and startup.
+`ReadsConfigurationUnless<TComponent>(section)` records a read that is required only when the component
+is not composed, for example the address of a service this process does not host. Its absence fails
+composition, finalization and profile verification with TRP005; the manifest records the condition.
 The manifest contains paths and owners, never bound values. Disposable runtime resources belong in DI
 factories/type registrations; captured instances and pre-Build adapter resources remain application-owned.
 
@@ -96,11 +100,17 @@ Endpoint inspection captures the inventory at UseComposition: map application en
 or declare them through Troupe. `composition.AspNetCore()` exposes endpoint metadata and listener requirements.
 
 `KestrelEndpoint(name)` requires `Kestrel:Endpoints:<name>`. Missing and unrequested configured names
-are errors. After Compose, install customization with `builder.ConfigureCompositionEndpoint(name, callback)`.
-A second tracked callback is rejected before Kestrel replaces TLS policy. Resolve trust through
-`ListenOptions.ApplicationServices`. The loader must read the `Kestrel` configuration section. Initialize it
-once with `reloadOnChange: false`, before callbacks, as the example does. Topology changes require restart; raw Kestrel calls remain untracked.
-Actual bind conflicts belong to Kestrel.
+are errors. `KestrelEndpoint(name, callback)` also makes the contributor the endpoint's callback owner; the
+callback runs only when that contributor is composed. The application can instead install customization
+after Compose with `builder.ConfigureCompositionEndpoint(name, callback)`. A second callback owner,
+contributor or application, is rejected with TRP104 before Kestrel replaces TLS policy. Resolve trust
+through `ListenOptions.ApplicationServices`.
+
+When any named endpoint is requested, Troupe configures Kestrel's named endpoint loader from the `Kestrel`
+section once, with `reloadOnChange: false`, and attaches callbacks to it. The application does not call
+`KestrelServerOptions.Configure`; a call after Compose would replace the loader and its callbacks, so Build
+fails. Topology changes require restart; raw Kestrel calls remain untracked. Actual bind conflicts belong
+to Kestrel.
 
 ```csharp
 var result = await CompositionVerifier.VerifyProfilesAsync<AppComposition>(

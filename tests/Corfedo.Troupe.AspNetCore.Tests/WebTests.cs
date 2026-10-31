@@ -34,7 +34,6 @@ public sealed class WebTests
         builder.Configuration["Kestrel:Endpoints:public:Url"] = "http://127.0.0.1:0";
         builder.Logging.ClearProviders();
         builder.Host.UseDefaultServiceProvider(o => { o.ValidateOnBuild = true; o.ValidateScopes = true; });
-        builder.WebHost.ConfigureKestrel(o => o.Configure(builder.Configuration.GetSection("Kestrel"), reloadOnChange: false));
         return builder;
     }
     internal static HttpClient Client(WebApplication app)

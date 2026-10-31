@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Server.Kestrel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Corfedo.Troupe.AspNetCore;
@@ -30,11 +31,23 @@ public static class AspNetCompositionExtensions
         Record(contributor, (s, o) => s.Integration<WebComposition>().AddEndpoints(o, map));
     }
     /// <summary>Requires Kestrel:Endpoints:name. This declares topology; it does not configure TLS or bind an address.</summary>
+    /// <remarks>Troupe configures Kestrel's named endpoint loader from the Kestrel section without topology reload.</remarks>
     public static void KestrelEndpoint(this IContributorBuilder contributor, string name)
+    {
+        EndpointName(name);
+        Record(contributor, (s, o) => s.Integration<WebComposition>().Listeners.Require(s, name, o));
+    }
+    /// <summary>Requires Kestrel:Endpoints:name and owns its single callback, for example its TLS and client certificate policy.</summary>
+    /// <remarks>Runs only when this contributor is composed. A second owner, including the application, is rejected. Resolve DI through ListenOptions.ApplicationServices.</remarks>
+    public static void KestrelEndpoint(this IContributorBuilder contributor, string name, Action<EndpointConfiguration> configure)
+    {
+        EndpointName(name); ArgumentNullException.ThrowIfNull(configure);
+        Record(contributor, (s, o) => s.Integration<WebComposition>().Listeners.RegisterOwnedCallback(s, o, name, configure));
+    }
+    private static void EndpointName(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (name.Contains(':')) throw new ArgumentException("Use one endpoint name, not a configuration path.", nameof(name));
-        Record(contributor, (s, o) => s.Integration<WebComposition>().Listeners.Require(name, o));
     }
     /// <summary>Finalizes composition, applies stages once, maps owner groups, and validates resulting endpoints.</summary>
     /// <remarks>Captures the endpoint inventory at this call. Map application endpoints before this call or declare them with Endpoints. Recorded pipelines must be applied before startup.</remarks>

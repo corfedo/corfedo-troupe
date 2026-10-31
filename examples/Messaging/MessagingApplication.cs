@@ -16,7 +16,6 @@ public static class MessagingApplication
             ApplicationName = typeof(MessagingApplication).Assembly.GetName().Name
         });
         builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
-        builder.WebHost.ConfigureKestrel(options => options.Configure(builder.Configuration.GetSection("Kestrel"), reloadOnChange: false));
         builder.Compose<MessagingComposition>();
         ConfigureWolverine(builder, TypeLoadMode.Static);
         return builder;
@@ -30,7 +29,6 @@ public static class MessagingApplication
             ApplicationName = typeof(MessagingApplication).Assembly.GetName().Name
         });
         builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
-        builder.WebHost.ConfigureKestrel(options => options.Configure(builder.Configuration.GetSection("Kestrel"), reloadOnChange: false));
         builder.Compose<DurableMessagingComposition>();
         ConfigureWolverine(builder, TypeLoadMode.Static, durable: true);
         return builder;
