@@ -65,6 +65,7 @@ public static class AspNetCompositionExtensions
     public static AspNetCompositionManifest AspNetCore(this IComposition composition)
     {
         if (composition is not CompositionSession session) throw new ArgumentException("The composition was not created by Troupe.", nameof(composition));
-        return WebComposition.Get(session).Snapshot();
+        return session.Extensions.TryGetValue(typeof(WebComposition), out var web)
+            ? ((WebComposition)web).Snapshot() : new(Array.Empty<string>(), Array.Empty<EndpointEntry>(), Array.Empty<KestrelEndpointEntry>());
     }
 }

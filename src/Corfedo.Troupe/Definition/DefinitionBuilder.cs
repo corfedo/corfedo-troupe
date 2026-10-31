@@ -4,6 +4,7 @@ namespace Corfedo.Troupe;
 
 internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
 {
+    internal Type DefinitionType = null!;
     internal readonly Dictionary<string, RoleDefinition> Roles = new(StringComparer.Ordinal);
     internal readonly List<ProfileIdentity> Profiles = [];
     internal readonly List<ICompositionRule> Rules = [];
@@ -34,7 +35,7 @@ internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
 
     internal static DefinitionBuilder Create<T>() where T : ICompositionDefinition, new()
     {
-        var definition = new DefinitionBuilder();
+        var definition = new DefinitionBuilder { DefinitionType = typeof(T) };
         new T().Define(definition);
         foreach (var profile in definition.Profiles)
             if (profile.Roles.Count == 0 || profile.Roles.Any(r => !definition.Roles.ContainsKey(r)))

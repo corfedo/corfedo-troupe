@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Corfedo.Troupe/Corfedo.Troupe.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

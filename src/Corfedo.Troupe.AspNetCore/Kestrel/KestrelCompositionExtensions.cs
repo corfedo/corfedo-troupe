@@ -8,7 +8,7 @@ namespace Corfedo.Troupe.AspNetCore;
 public static class KestrelCompositionExtensions
 {
     /// <summary>Registers one callback for a requested name, rejecting a second before Kestrel can replace it.</summary>
-    /// <remarks>Uses the existing ConfigurationLoader. Raw ConfigureKestrel and Endpoint calls remain application-owned and untracked. Resolve DI through ListenOptions.ApplicationServices.</remarks>
+    /// <remarks>Uses the existing ConfigurationLoader; the application disables topology reload on that loader. Raw ConfigureKestrel and Endpoint calls remain application-owned and untracked. Resolve DI through ListenOptions.ApplicationServices.</remarks>
     public static void ConfigureCompositionEndpoint(this WebApplicationBuilder builder, string name, Action<EndpointConfiguration> configure)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name); ArgumentNullException.ThrowIfNull(configure);

@@ -17,6 +17,8 @@ internal static class Graph
         var complete = new HashSet<Type>();
         void Visit(Type type, CompositionOwner owner, Action<ContributorBuilder> declare)
         {
+            if (nodes.TryGetValue(type, out var existing) && existing.Owner != owner)
+                throw Errors.Fail("TRP010", $"Contributor type {type.FullName} has conflicting role/component identities.");
             if (complete.Contains(type)) return;
             var cycleAt = path.FindIndex(n => n.Owner.Type == type);
             if (cycleAt >= 0)

@@ -8,7 +8,6 @@ internal sealed class ContributorBuilder(CompositionOwner owner) : IRoleBuilder,
     internal CompositionOwner Owner { get; } = owner;
     internal readonly Dictionary<Type, Action<ContributorBuilder>> Requirements = [];
     internal readonly List<Action<CompositionSession, CompositionOwner>> Actions = [];
-    internal readonly Dictionary<Type, object> Extensions = [];
 
     public IContributorBuilder Requires<T>() where T : IComponent, new()
     { Requirements.TryAdd(typeof(T), b => new T().Compose(b)); return this; }

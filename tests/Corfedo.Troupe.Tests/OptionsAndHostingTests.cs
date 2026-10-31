@@ -185,6 +185,68 @@ public sealed class OptionsAndHostingTests
         finally { resource.Dispose(); }
         Assert.Equal(1, state.Disposed);
     }
+    [Fact]
+    public async Task OptionalAbsentSectionsBindDefaultsWithoutBecomingTopologyConditions()
+    {
+        var builder = Builder("a");
+        A.Declare = r => { r.Options<Probe>("Absent", required: false); r.ReadsConfiguration("Optional", required: false); };
+        var manifest = builder.Compose<Definition>(); using var host = builder.Build();
+        Assert.Equal(0, host.Services.GetRequiredService<IOptions<Probe>>().Value.Count);
+        Assert.All(manifest.Configuration, c => Assert.False(c.Required));
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        await host.StopAsync(TestContext.Current.CancellationToken);
+    }
+    [Fact]
+    public async Task StartupValidationFailureDisposesResourcesAcquiredByHostedConstructors()
+    {
+        var state = new ResourceState(); var builder = OptionsBuilder("-1");
+        A.Declare = r =>
+        {
+            r.Options<Probe, Positive>("Probe");
+            r.Services(s =>
+            {
+                s.AddSingleton(_ => new Resource(state));
+                s.AddSingleton<IHostedService, ResourceWorker>();
+            });
+        };
+        builder.Compose<Definition>();
+        using (var host = builder.Build())
+        {
+            await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(1, state.Created); Assert.Equal(0, state.Disposed);
+        }
+        Assert.Equal(1, state.Disposed);
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ApplicationAdapterOwnsPreBuildResourcesOnCompositionAndBuildFailure(bool buildFailure)
+    {
+        var state = new ResourceState();
+        using (var adapterResource = new Resource(state))
+        {
+            var builder = Builder("a");
+            if (buildFailure)
+            {
+                A.Declare = r => r.Services(s => s.AddSingleton<MissingDependency>());
+                builder.Compose<Definition>(); builder.Services.AddSingleton(adapterResource);
+                Assert.Throws<AggregateException>(() => builder.Build());
+            }
+            else
+            {
+                A.Declare = r => r.Requires<Cycle1>();
+                Assert.Throws<CompositionException>(() => builder.Compose<Definition>());
+            }
+            Assert.Equal(0, state.Disposed);
+        }
+        Assert.Equal(1, state.Disposed);
+    }
+    public sealed class ResourceWorker(Resource resource) : IHostedService
+    {
+        public Resource Resource { get; } = resource;
+        public Task StartAsync(CancellationToken c) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken c) => Task.CompletedTask;
+    }
     public sealed class Probe { public int Count { get; set; } }
     public sealed class Positive : IValidateOptions<Probe>
     { public ValidateOptionsResult Validate(string? name, Probe p) => p.Count > 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail("positive"); }

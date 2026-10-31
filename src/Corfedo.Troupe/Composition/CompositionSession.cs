@@ -21,11 +21,12 @@ internal sealed class CompositionSession(IHostApplicationBuilder builder, Defini
     internal readonly List<CompositionDiagnostic> AdditionalDiagnostics = [];
     internal readonly Dictionary<Type, object> Extensions = [];
     internal bool Finalized;
+    private CompositionManifest? currentManifest;
     public IReadOnlyList<RoleIdentity> Roles { get; } = Array.AsReadOnly(roles);
     public bool Contains<TRole>() where TRole : IRole => Roles.Any(r => r.Type == typeof(TRole));
-    public CompositionManifest Manifest => Snapshot();
+    public CompositionManifest Manifest => currentManifest ?? Snapshot(evaluateRules: false);
     internal void Track(CompositionOwner owner, Action<IServiceCollection> callback, bool privileged = false) => Ledger.Configure(owner, callback, privileged);
-    internal CompositionManifest Snapshot(bool evaluateRules = true)
+    internal CompositionManifest Snapshot(bool evaluateRules = true, bool finalize = false)
     {
         var manifest = new CompositionManifest(Roles,
             Array.AsReadOnly(Nodes.Select(n => new ContributorEntry(n.Owner,
@@ -36,6 +37,10 @@ internal sealed class CompositionSession(IHostApplicationBuilder builder, Defini
             Array.AsReadOnly(AdditionalDiagnostics.ToArray()));
         if (!evaluateRules) return manifest;
         var diagnostics = CoreRules.Evaluate(this, manifest).Concat(InternalRules.SelectMany(r => r.Evaluate(manifest))).Concat(AdditionalDiagnostics).ToList();
+        if (finalize)
+            diagnostics.AddRange(Contributions.Where(c => !c.Applied).Select(c => new CompositionDiagnostic(
+                "TRP008", DiagnosticSeverity.Error, $"Unconsumed contribution to {c.Target.FullName} from {c.Owner.Name}.",
+                Array.AsReadOnly(new[] { c.Owner }))));
         manifest = new(manifest.Roles, manifest.Contributors, manifest.Services, manifest.ServiceMutations,
             manifest.Configuration, manifest.Contributions, Array.AsReadOnly(diagnostics.ToArray()));
         foreach (var rule in Definition.Rules) diagnostics.AddRange(rule.Evaluate(manifest));
@@ -45,16 +50,8 @@ internal sealed class CompositionSession(IHostApplicationBuilder builder, Defini
     internal CompositionManifest Validate(bool finalize = false)
     {
         Ledger.Synchronize();
-        if (finalize)
-        {
-            foreach (var contribution in Contributions.Where(c => !c.Applied))
-            {
-                var diagnostic = new CompositionDiagnostic("TRP008", DiagnosticSeverity.Error,
-                    $"Unconsumed contribution to {contribution.Target.FullName} from {contribution.Owner.Name}.", Array.AsReadOnly(new[] { contribution.Owner }));
-                if (!AdditionalDiagnostics.Contains(diagnostic)) AdditionalDiagnostics.Add(diagnostic);
-            }
-        }
-        var manifest = Snapshot();
+        var manifest = Snapshot(finalize: finalize);
+        currentManifest = manifest;
         if (manifest.Diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
             throw new CompositionException(manifest.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error), manifest);
         if (finalize) Finalized = true;

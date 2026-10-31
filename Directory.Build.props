@@ -9,10 +9,12 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <Authors>Wojciech Wentland</Authors>
     <Copyright>Copyright 2026 Wojciech Wentland</Copyright>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Version>0.1.0-alpha.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" />
     <None Include="$(MSBuildThisFileDirectory)NOTICE" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

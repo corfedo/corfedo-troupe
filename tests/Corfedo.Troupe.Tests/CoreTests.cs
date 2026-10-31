@@ -202,6 +202,61 @@ public sealed class CoreTests
         Builder("a").Compose<Definition>();
         Assert.Throws<InvalidOperationException>(() => retained!.AddSingleton<Foo>());
     }
+    [Fact]
+    public void ClearOfOwnedOccurrencesIsRecordedAndForeignClearDoesNotPartiallyRemoveThem()
+    {
+        var empty = Builder("a"); empty.Services.Clear();
+        A.Declare = r => r.Services(s => { s.AddSingleton<Foo>(); s.AddSingleton<Bar>(); s.Clear(); });
+        var cleared = empty.Compose<Definition>();
+        Assert.Equal(2, cleared.ServiceMutations.Count(m => m.Kind == ServiceMutationKind.Clear && m.Accepted));
+        Assert.DoesNotContain(cleared.Services, s => s.Active && (s.ServiceType == typeof(Foo) || s.ServiceType == typeof(Bar)));
+        var normal = Builder("a");
+        var added = ServiceDescriptor.Singleton<Foo, Foo>();
+        A.Declare = r => r.Services(s => { s.Add(added); s.Clear(); });
+        Assert.Throws<CompositionException>(() => normal.Compose<Definition>());
+        Assert.Contains(added, normal.Services);
+    }
+    [Fact]
+    public void DualRoleAndComponentIdentityIsRejected()
+    {
+        A.Declare = r => r.Requires<Dual>();
+        Assert.Contains("conflicting", Assert.Throws<CompositionException>(() => Builder("a,d").Compose<DualDefinition>()).Message);
+    }
+    [Fact]
+    public void ApplicationRulesCanPromoteAdvisories()
+    {
+        A.Declare = r => r.Services(s => s.AddSingleton<Foo>());
+        B.Declare = r => r.Services(s => s.AddSingleton<Foo>());
+        Assert.Contains("TRP001", Assert.Throws<CompositionException>(() => Builder().Compose<StrictDefinition>()).Message);
+    }
+    [Fact]
+    public void RuntimeManifestIsTheValidatedSnapshotAndDoesNotReexecuteApplicationRules()
+    {
+        CountingRule.Calls = 0;
+        var builder = Builder("a"); builder.Compose<CountingDefinition>();
+        var finalized = builder.FinalizeComposition(); var calls = CountingRule.Calls;
+        using var host = builder.Build(); var composition = host.Services.GetRequiredService<IComposition>();
+        Assert.Same(finalized, composition.Manifest); Assert.Same(finalized, composition.Manifest);
+        Assert.Equal(calls, CountingRule.Calls);
+    }
+    public sealed class CountingDefinition : ICompositionDefinition
+    { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Rule(new CountingRule()); }
+    private sealed class CountingRule : ICompositionRule
+    {
+        internal static int Calls;
+        public IEnumerable<CompositionDiagnostic> Evaluate(CompositionManifest manifest) { Calls++; return []; }
+    }
+    public sealed class StrictDefinition : ICompositionDefinition
+    { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<B>().Rule(new PromoteDuplicates()); }
+    private sealed class PromoteDuplicates : ICompositionRule
+    {
+        public IEnumerable<CompositionDiagnostic> Evaluate(CompositionManifest manifest) =>
+            manifest.Diagnostics.Where(d => d.Code == "TRP001").Select(d => d with { Severity = DiagnosticSeverity.Error });
+    }
+    public sealed class DualDefinition : ICompositionDefinition
+    { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<Dual>(); }
+    [Role("d")] public sealed class Dual : IRole, IComponent
+    { public void Compose(IRoleBuilder r) { } public void Compose(IComponentBuilder c) { } }
     public sealed class Definition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<B>(); }
     public sealed class ProfileDefinition : ICompositionDefinition
