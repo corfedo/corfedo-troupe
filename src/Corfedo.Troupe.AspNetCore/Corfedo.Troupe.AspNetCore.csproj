@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Description>Selectable application role composition for .NET hosts.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Corfedo.Troupe/Corfedo.Troupe.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>

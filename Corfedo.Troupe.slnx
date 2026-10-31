@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Corfedo.Troupe/Corfedo.Troupe.csproj" />
+    <Project Path="src/Corfedo.Troupe.AspNetCore/Corfedo.Troupe.AspNetCore.csproj" />
+    <Project Path="src/Corfedo.Troupe.Testing/Corfedo.Troupe.Testing.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Corfedo.Troupe.Tests/Corfedo.Troupe.Tests.csproj" />
+    <Project Path="tests/Corfedo.Troupe.AspNetCore.Tests/Corfedo.Troupe.AspNetCore.Tests.csproj" />
+    <Project Path="tests/Corfedo.Troupe.Testing.Tests/Corfedo.Troupe.Testing.Tests.csproj" />
+  </Folder>
+</Solution>

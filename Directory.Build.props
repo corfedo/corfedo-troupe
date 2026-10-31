@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <Deterministic>true</Deterministic>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <Authors>Wojciech Wentland</Authors>
+    <Copyright>Copyright 2026 Wojciech Wentland</Copyright>
+    <Version>0.1.0-alpha.1</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
+    <None Include="$(MSBuildThisFileDirectory)NOTICE" Pack="true" PackagePath="" />
+  </ItemGroup>
+</Project>

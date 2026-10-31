@@ -1,2 +1,8 @@
-# Local design notes and ADR drafts.
 .design/
+**/bin/
+**/obj/
+TestResults/
+artifacts/
+.vs/
+.idea/
+.DS_Store
