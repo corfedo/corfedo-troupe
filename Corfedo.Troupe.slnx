@@ -5,6 +5,7 @@
     <Project Path="src/Corfedo.Troupe.Testing/Corfedo.Troupe.Testing.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Corfedo.Troupe.Examples.Tests/Corfedo.Troupe.Examples.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.Tests/Corfedo.Troupe.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.AspNetCore.Tests/Corfedo.Troupe.AspNetCore.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.Testing.Tests/Corfedo.Troupe.Testing.Tests.csproj" />
