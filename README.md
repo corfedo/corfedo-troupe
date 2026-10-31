@@ -94,6 +94,9 @@ ready-node ties.
 Stateless, parameterless definitions only declare: no I/O or resource acquisition. Recorded callbacks
 execute after graph validation. Runtime consumers inject `IComposition` for membership and snapshots.
 `Includes<TComponent>()` reports whether a component is composed in this process, available from Build on.
+`CompositionManifest` answers the same from any snapshot: `Composes<TComponent>()`, `PathTo<TComponent>()` (the
+requirement chain from a role), `Active(serviceType, key)`, `OwnedBy(owner)`, `Reads(section)` and
+`ContributorsTo<TTarget>()`.
 
 Keep `ValidateOnBuild` and `ValidateScopes` enabled, as the examples do. The call sequence is
 `Compose; FinalizeComposition; Build; UseComposition; Run`. `FinalizeComposition` is required after
@@ -129,7 +132,9 @@ authentication needs the application adapter's version-sensitive `__Authenticati
 Troupe does not suppress authentication. `app.UseComposition()` applies stages once, then maps empty-prefix
 endpoint owner groups. Startup and profile verification reject recorded pipelines that were not applied.
 Endpoint inspection captures the inventory at UseComposition: map application endpoints before that call,
-or declare them through Troupe. `composition.AspNetCore()` exposes endpoint metadata and listener requirements.
+or declare them through Troupe. `composition.AspNetCore()` exposes endpoint metadata and listener requirements. Before Build,
+`builder.AspNetComposition()` returns the stages and listener requirements from the builder, also after a failed
+Compose.
 
 `KestrelEndpoint(name)` requires `Kestrel:Endpoints:<name>`. Missing and unrequested configured names
 are errors. `KestrelEndpoint(name, callback)` also makes the contributor the endpoint's callback owner; the

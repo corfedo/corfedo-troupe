@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Server.Kestrel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Corfedo.Troupe.AspNetCore;
 
@@ -64,6 +65,14 @@ public static class AspNetCompositionExtensions
     {
         if (composition is not RuntimeComposition runtime) throw new ArgumentException("The composition was not created by Troupe.", nameof(composition));
         return runtime.IntegrationSnapshot<AspNetCompositionManifest>() ?? new(Array.Empty<string>(), Array.Empty<EndpointEntry>(), Array.Empty<KestrelEndpointEntry>());
+    }
+    /// <summary>Gets the ASP.NET snapshot of the builder's composition, including after a failed Compose.</summary>
+    /// <remarks>Reports stages and named Kestrel requirements before Build, for example to derive listeners when configuration is absent.
+    /// Null when the builder has no composition session or the composition has no web declarations.</remarks>
+    public static AspNetCompositionManifest? AspNetComposition(this IHostApplicationBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return CompositionSession.TryGet(builder)?.IntegrationSnapshot<AspNetCompositionManifest>();
     }
     private static DefinitionBuilder Definition(ICompositionDefinitionBuilder builder) => builder as DefinitionBuilder ??
         throw new ArgumentException("ASP.NET declarations require Troupe's definition builder.", nameof(builder));

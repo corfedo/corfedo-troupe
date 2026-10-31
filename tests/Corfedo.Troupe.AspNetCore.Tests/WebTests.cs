@@ -195,6 +195,24 @@ public sealed class WebTests
         var manifest = host.Services.GetRequiredService<IComposition>().AspNetCore();
         Assert.Equal(OwnerKind.Application, Assert.Single(manifest.KestrelEndpoints).CallbackOwner!.Kind);
     }
+    [Fact]
+    public void BuilderSnapshotReportsListenerRequirementsAlsoAfterAFailedCompose()
+    {
+        var missing = Builder("a"); missing.Configuration.Sources.Clear(); missing.Configuration.AddInMemoryCollection(); missing.Configuration["Roles"] = "a";
+        Assert.Null(missing.AspNetComposition());
+        Assert.Contains("TRP103", Assert.Throws<CompositionException>(() => missing.Compose<Definition>()).Message);
+        var failed = missing.AspNetComposition()!;
+        Assert.Equal(["public"], failed.KestrelEndpoints.Select(e => e.Name));
+        Assert.Equal(typeof(Ingress), Assert.Single(Assert.Single(failed.KestrelEndpoints).Owners).Type);
+        var composed = Builder("a"); composed.Compose<Definition>();
+        Assert.Equal(Definition.StageNames, composed.AspNetComposition()!.Stages);
+        var generic = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
+        generic.Configuration["Roles"] = "plain"; generic.Compose<PlainDefinition>();
+        Assert.Null(generic.AspNetComposition());
+    }
+    public sealed class PlainDefinition : ICompositionDefinition
+    { public void Define(ICompositionDefinitionBuilder d) => d.Role<Plain>(); }
+    [Role("plain")] public sealed class Plain : IRole { public void Compose(IRoleBuilder r) { } }
     public sealed class Definition : ICompositionDefinition
     {
         internal static string[] StageNames = [];

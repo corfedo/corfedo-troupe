@@ -116,6 +116,55 @@ public sealed class CompositionManifest
     public IReadOnlyList<ContributionEntry> Contributions { get; }
     /// <summary>Gets bounded diagnostics; absence of advisories does not prove runtime safety.</summary>
     public IReadOnlyList<CompositionDiagnostic> Diagnostics { get; }
+
+    /// <summary>Tests whether the component is composed in this snapshot.</summary>
+    public bool Composes<TComponent>() where TComponent : IComponent =>
+        Contributors.Any(c => c.Owner.Kind == OwnerKind.Component && c.Owner.Type == typeof(TComponent));
+    /// <summary>Gets the shortest requirement chain from a role, or the test root, to the component.</summary>
+    /// <remarks>The chain starts at the role and ends at the component; it is empty when the component is not composed. Ties follow ordinal names.</remarks>
+    public IReadOnlyList<CompositionOwner> PathTo<TComponent>() where TComponent : IComponent
+    {
+        var entries = Contributors.ToDictionary(c => c.Owner);
+        var previous = new Dictionary<CompositionOwner, CompositionOwner?>();
+        var pending = new Queue<CompositionOwner>();
+        foreach (var start in Contributors.Select(c => c.Owner).Where(o => o.Kind is OwnerKind.Role or OwnerKind.Test).OrderBy(o => o.Name, StringComparer.Ordinal))
+        { previous.Add(start, null); pending.Enqueue(start); }
+        while (pending.TryDequeue(out var current))
+        {
+            if (current.Kind == OwnerKind.Component && current.Type == typeof(TComponent))
+            {
+                var path = new List<CompositionOwner>();
+                for (CompositionOwner? step = current; step is not null; step = previous[step]) path.Add(step);
+                path.Reverse();
+                return path.AsReadOnly();
+            }
+            foreach (var dependency in entries[current].Dependencies)
+                if (previous.TryAdd(dependency, current)) pending.Enqueue(dependency);
+        }
+        return Array.Empty<CompositionOwner>();
+    }
+    /// <summary>Gets the active registrations in a service type and key slot, in collection order.</summary>
+    /// <param name="serviceType">The service type.</param><param name="key">The service key; null denotes the unkeyed slot.</param>
+    public IEnumerable<ServiceRegistration> Active(Type serviceType, object? key = null)
+    {
+        ArgumentNullException.ThrowIfNull(serviceType);
+        return Services.Where(s => s.Active && s.ServiceType == serviceType && Equals(s.Key, key));
+    }
+    /// <summary>Gets every occurrence the owner registered, including removed ones; filter by Active for current registrations.</summary>
+    public IEnumerable<ServiceRegistration> OwnedBy(CompositionOwner owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        return Services.Where(s => s.Owner == owner);
+    }
+    /// <summary>Gets the declared reads of a configuration section, compared case-insensitively as configuration keys are.</summary>
+    public IEnumerable<ConfigurationRead> Reads(string section)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+        return Configuration.Where(r => string.Equals(r.Section, section, StringComparison.OrdinalIgnoreCase));
+    }
+    /// <summary>Gets the contributors with a builder contribution to exactly <typeparamref name="TTarget"/>, in canonical order.</summary>
+    public IEnumerable<CompositionOwner> ContributorsTo<TTarget>() =>
+        Contributions.Where(c => c.TargetType == typeof(TTarget)).Select(c => c.Owner).Distinct();
 }
 
 /// <summary>Reports composition errors and the available manifest snapshot.</summary>
