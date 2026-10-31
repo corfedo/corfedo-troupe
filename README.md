@@ -17,11 +17,19 @@ dotnet build Corfedo.Troupe.slnx
 dotnet test Corfedo.Troupe.slnx
 dotnet run --project examples/Worker -- --roles worker
 dotnet run --project examples/Web -- --roles web,health
+dotnet run --project examples/Messaging -- --roles orders,notifications
 ```
 
 The [worker](examples/Worker/Program.cs) integrates Microsoft.Extensions.Hosting, validated options
 and BackgroundService. The [web example](examples/Web/Program.cs) integrates ASP.NET Core routing,
-Minimal APIs, health checks and named Kestrel configuration at `http://127.0.0.1:5080`.
+Minimal APIs, health checks and named Kestrel configuration at `http://127.0.0.1:5080`. The
+[Wolverine messaging example](examples/Messaging/README.md) demonstrates real builder contributions,
+selectable consumers, request/reply, local queues and static handler generation. Its default address
+is `http://127.0.0.1:5081`.
+
+`Corfedo.Troupe.Examples.Tests` verifies the examples' actual definitions and starts real hosts for
+heartbeat, HTTP and message-handling tests. Wolverine dependencies are confined to the messaging
+example and its tests.
 
 ## Application composition
 
@@ -114,7 +122,7 @@ are advisory unless explicitly exclusive. Known hosted duplicates, foreign remov
 names are errors. Route overlap diagnostics are bounded candidates considering order, precedence, methods,
 hosts and constraints; custom policies need HTTP tests. ASP0022/ASP0023 remain enabled.
 
-Named options, live topology changes, Corfedo/Wolverine adapters and Native AOT guarantees are outside this
+Named options, live topology changes, packaged Corfedo/Wolverine adapters and Native AOT guarantees are outside this
 alpha. gRPC/MCP ownership has no executable package tests here. See [LICENSE](LICENSE) and [NOTICE](NOTICE)
 for Apache-2.0 terms and the reservation of Corfedo names, logos and brand assets.
 

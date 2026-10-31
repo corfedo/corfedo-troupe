@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../examples/Messaging/Messaging.csproj" />
+    <Compile Include="../../../examples/Messaging/Internal/Generated/WolverineHandlers/PlaceOrderHandler*.cs" Link="Generated/%(Filename)%(Extension)" />
+    <Compile Include="../../../examples/Messaging/Internal/Generated/WolverineHandlers/DeliveryReceiptHandler*.cs" Link="Generated/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

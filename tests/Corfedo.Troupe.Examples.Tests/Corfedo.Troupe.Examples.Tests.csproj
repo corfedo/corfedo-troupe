@@ -6,8 +6,10 @@
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../Fixtures/IncompleteMessagingArtifact/IncompleteMessagingArtifact.csproj" />
     <ProjectReference Include="../../src/Corfedo.Troupe.Testing/Corfedo.Troupe.Testing.csproj" />
     <ProjectReference Include="../../examples/Worker/Worker.csproj" />
+    <ProjectReference Include="../../examples/Messaging/Messaging.csproj" />
     <ProjectReference Include="../../examples/Web/Web.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3.mtp-off" />

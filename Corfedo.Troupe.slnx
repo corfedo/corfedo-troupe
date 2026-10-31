@@ -10,7 +10,11 @@
     <Project Path="tests/Corfedo.Troupe.AspNetCore.Tests/Corfedo.Troupe.AspNetCore.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.Testing.Tests/Corfedo.Troupe.Testing.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Fixtures/">
+    <Project Path="tests/Fixtures/IncompleteMessagingArtifact/IncompleteMessagingArtifact.csproj" />
+  </Folder>
   <Folder Name="/examples/">
+    <Project Path="examples/Messaging/Messaging.csproj" />
     <Project Path="examples/Worker/Worker.csproj" />
     <Project Path="examples/Web/Web.csproj" />
   </Folder>
