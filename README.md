@@ -14,11 +14,13 @@
   <a href="https://github.com/corfedo/corfedo-troupe/actions/workflows/ci.yml"><img src="https://github.com/corfedo/corfedo-troupe/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
 </p>
 
-Troupe composes a .NET host from components that declare what they register, what they require, which configuration
-they read and what they contribute to other builders. It records the owner of every registration, so a misconfigured
-host fails at startup with a diagnostic code that names the owners involved, instead of failing later at runtime.
-Roles and profiles select the components of each process, so one executable runs in process or split across
-processes from the same declarations.
+**A host composition framework for .NET.** In a large application, `Program.cs` grows into hundreds of
+registrations nobody owns, and a missing configuration section or a conflicting registration shows up only when a
+request hits it. Troupe builds the host from components that declare what they register, what they require, which
+configuration they read and what they contribute to other builders. It records the owner of every registration, so a
+misconfigured host fails at startup with a diagnostic code that names the owners involved. Roles and profiles select
+the components of each process, so one executable runs combined or split across processes from the same
+declarations.
 
 Use it to keep a multi-role .NET application composable and checkable:
 

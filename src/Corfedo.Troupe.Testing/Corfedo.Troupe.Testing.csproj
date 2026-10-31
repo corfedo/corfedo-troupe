@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Description>Selectable application role composition for .NET hosts.</Description>
+    <Description>Testing support for Corfedo Troupe: verify every declared profile with real hosts, compose a slice of components and replace services with recorded test ownership.</Description>
+    <PackageTags>composition;hosting;testing;integration-testing;dependency-injection</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Corfedo.Troupe/Corfedo.Troupe.csproj" />

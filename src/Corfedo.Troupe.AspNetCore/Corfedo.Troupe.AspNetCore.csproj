@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Description>Selectable application role composition for .NET hosts.</Description>
+    <Description>ASP.NET Core integration for Corfedo Troupe: middleware stages, endpoints and named Kestrel endpoints declared by components, with startup checks for the pipeline and endpoint configuration.</Description>
+    <PackageTags>composition;hosting;aspnetcore;kestrel;middleware;endpoints;modular-monolith</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Corfedo.Troupe/Corfedo.Troupe.csproj" />
