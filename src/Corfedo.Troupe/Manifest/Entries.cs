@@ -89,17 +89,19 @@ public sealed record CompositionDiagnostic(string Code, DiagnosticSeverity Sever
 /// <summary>Contains a read-only point-in-time record. Factory bodies and suppressed TryAdd attempts are unknown.</summary>
 public sealed class CompositionManifest
 {
-    internal CompositionManifest(IReadOnlyList<RoleIdentity> roles, IReadOnlyList<ContributorEntry> contributors,
+    internal CompositionManifest(ProfileIdentity? profile, IReadOnlyList<RoleIdentity> roles, IReadOnlyList<ContributorEntry> contributors,
         IReadOnlyList<ServiceRegistration> services, IReadOnlyList<ServiceMutation> mutations,
         IReadOnlyList<ConfigurationRead> configuration, IReadOnlyList<ContributionEntry> contributions,
         IReadOnlyList<CompositionDiagnostic> diagnostics)
     {
-        Roles = roles; Contributors = contributors; Services = services; ServiceMutations = mutations;
+        Profile = profile; Roles = roles; Contributors = contributors; Services = services; ServiceMutations = mutations;
         Configuration = configuration; Contributions = contributions; Diagnostics = diagnostics;
     }
     internal CompositionManifest WithDiagnostics(IEnumerable<CompositionDiagnostic> diagnostics) =>
-        new(Roles, Contributors, Services, ServiceMutations, Configuration, Contributions,
+        new(Profile, Roles, Contributors, Services, ServiceMutations, Configuration, Contributions,
             Array.AsReadOnly(diagnostics.Distinct(DiagnosticComparer.Instance).ToArray()));
+    /// <summary>Gets the selected profile, or null when the definition declares no profiles.</summary>
+    public ProfileIdentity? Profile { get; }
     /// <summary>Gets the selected roles.</summary>
     public IReadOnlyList<RoleIdentity> Roles { get; }
     /// <summary>Gets the canonical dependency-first execution order.</summary>

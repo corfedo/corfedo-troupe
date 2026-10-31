@@ -19,7 +19,7 @@ public sealed class VerifierTests
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
-        builder.Configuration["Roles"] = string.Join(',', profile.Roles);
+        builder.Configuration["Profile"] = profile.Name;
         builder.Configuration["Probe:Count"] = "2";
         return builder;
     }

@@ -25,9 +25,9 @@ Reference the relevant project in `src/`; packages are not published. Use SDK 10
 ```sh
 dotnet build Corfedo.Troupe.slnx
 dotnet test Corfedo.Troupe.slnx
-dotnet run --project examples/Worker -- --roles worker
-dotnet run --project examples/Web -- --roles web,health
-dotnet run --project examples/Messaging -- --roles orders,notifications
+dotnet run --project examples/Worker -- --profile worker
+dotnet run --project examples/Web -- --profile combined
+dotnet run --project examples/Messaging -- --profile combined
 dotnet run --project examples/Operations -- certificates
 ```
 
@@ -72,9 +72,14 @@ using var host = builder.Build();
 await host.RunAsync();
 ```
 
-`Roles` is a comma-separated IConfiguration value (`--roles worker` or `ROLES=worker`). Selection is
-a set. Dependencies precede dependents; ordinal names break ready-node ties. Declared profiles are
-exact supported sets, with no opt-out. Without profiles, any nonempty known role set is accepted.
+A definition that declares profiles is selected by profile name: `Profile` is an IConfiguration value
+(`--profile worker` or `PROFILE=worker`). Declared profiles are exact supported sets, with no opt-out:
+`Roles` is rejected, and an unknown name fails with the declared names. The selected profile is
+`IComposition.Profile` and `CompositionManifest.Profile`; `CompositionExtensions.DeclaredProfiles<T>()`
+lists them without composing, for example for usage text. A definition without profiles is selected by
+`Roles`, a comma-separated value (`--roles worker`); any nonempty known role set is accepted and
+`Profile` is rejected. Selection is a set. Dependencies precede dependents; ordinal names break
+ready-node ties.
 Stateless, parameterless definitions only declare: no I/O or resource acquisition. Recorded callbacks
 execute after graph validation. Runtime consumers inject `IComposition` for membership and snapshots.
 `Includes<TComponent>()` reports whether a component is composed in this process, available from Build on.

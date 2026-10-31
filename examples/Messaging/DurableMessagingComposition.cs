@@ -90,7 +90,7 @@ public sealed class PublisherRole : IRole
 
 public sealed class DurableProvisioningComposition : ICompositionDefinition
 {
-    public void Define(ICompositionDefinitionBuilder definition) => definition.Role<DurableProvisioningRole>();
+    public void Define(ICompositionDefinitionBuilder definition) => definition.Role<DurableProvisioningRole>().Profile("provision", "provision");
 }
 
 [Role("provision")]

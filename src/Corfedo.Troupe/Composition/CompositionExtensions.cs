@@ -5,15 +5,18 @@ namespace Corfedo.Troupe;
 /// <summary>Composes selected declarations and applies application-owned builder callbacks.</summary>
 public static class CompositionExtensions
 {
-    /// <summary>Reads Roles configuration, resolves the selected graph, and executes recorded service callbacks.</summary>
+    /// <summary>
+    /// Reads the selection (Profile configuration when the definition declares profiles, otherwise Roles), resolves the selected graph, and
+    /// executes recorded service callbacks.
+    /// </summary>
     public static CompositionManifest Compose<T>(this IHostApplicationBuilder builder) where T : ICompositionDefinition, new()
     {
         ArgumentNullException.ThrowIfNull(builder);
         if (CompositionSession.TryGet(builder) is { } existing)
             throw existing.Fail(DiagnosticCodes.InvalidPhase, "A builder can compose only once.", ServiceLedger.Application);
         var definition = DefinitionBuilder.Create<T>();
-        var (roles, nodes) = Graph.Resolve(definition, builder.Configuration["Roles"]);
-        var session = new CompositionSession(builder, definition, roles, nodes);
+        var (profile, roles, nodes) = Graph.Resolve(definition, builder.Configuration["Profile"], builder.Configuration["Roles"]);
+        var session = new CompositionSession(builder, definition, profile, roles, nodes);
         builder.Properties.Add(typeof(CompositionSession), session);
         try
         {
@@ -28,6 +31,9 @@ public static class CompositionExtensions
         }
         finally { foreach (var node in nodes) node.Release(); }
     }
+    /// <summary>Gets the serving profiles the definition declares, in declaration order, without composing.</summary>
+    public static IReadOnlyList<ProfileIdentity> DeclaredProfiles<T>() where T : ICompositionDefinition, new() =>
+        Array.AsReadOnly(DefinitionBuilder.Create<T>().Profiles.ToArray());
     /// <summary>Applies callbacks once for the exact target type in canonical order. Library descriptors are application-owned.</summary>
     public static void ApplyContributions<T>(this IHostApplicationBuilder builder, T target)
     {

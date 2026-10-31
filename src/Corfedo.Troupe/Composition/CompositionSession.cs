@@ -24,13 +24,13 @@ internal sealed class CompositionSession
     private CompositionException? failure;
 
     internal CompositionSession(IHostApplicationBuilder builder, DefinitionBuilder definition,
-        RoleIdentity[] roles, ContributorBuilder[] nodes)
+        ProfileIdentity? profile, RoleIdentity[] roles, ContributorBuilder[] nodes)
     {
         DefinitionType = definition.DefinitionType;
         configuration = builder.Configuration;
         ledger = new(builder.Services);
         rules = definition.Rules.ToArray();
-        Runtime = new(Array.AsReadOnly(roles), nodes.Select(n => n.Owner.Type!).ToFrozenSet());
+        Runtime = new(profile, Array.AsReadOnly(roles), nodes.Select(n => n.Owner.Type!).ToFrozenSet());
         contributors = Array.AsReadOnly(nodes.Select(n => new ContributorEntry(n.Owner,
             Array.AsReadOnly(n.Requirements.Keys.Select(t => nodes.Single(x => x.Owner.Type == t).Owner)
                 .OrderBy(o => o.Name, StringComparer.Ordinal).ToArray()))).ToArray());
@@ -156,7 +156,7 @@ internal sealed class CompositionSession
     {
         var services = ledger is not null ? Array.AsReadOnly(ledger.Registrations()) : Runtime.Manifest.Services;
         var mutations = ledger is not null ? Array.AsReadOnly(ledger.Mutations()) : Runtime.Manifest.ServiceMutations;
-        return new(Runtime.Roles, contributors, services, mutations, reads,
+        return new(Runtime.Profile, Runtime.Roles, contributors, services, mutations, reads,
             Array.AsReadOnly(contributions.Select(c => new ContributionEntry(c.Owner, c.Target, c.Applied)).ToArray()),
             Array.AsReadOnly(failures.Distinct(DiagnosticComparer.Instance).ToArray()));
     }

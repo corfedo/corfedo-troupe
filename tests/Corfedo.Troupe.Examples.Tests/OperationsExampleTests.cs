@@ -28,8 +28,7 @@ public sealed class OperationsExampleTests : IDisposable
     {
         var result = await CompositionVerifier.VerifyProfilesAsync<OperationsComposition>(profile =>
         {
-            var roles = string.Join(',', profile.Roles);
-            return Builder(roles, roles.Contains("api") ? Remote(roles.Contains("gateway") ? null : Unreachable, Unreachable) : []);
+            return Builder(profile.Name, profile.Roles.Contains("api") ? Remote(profile.Roles.Contains("gateway") ? null : Unreachable, Unreachable) : []);
         }, cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(result.Succeeded, result.ToString());
         Assert.Equal(5, result.Profiles.Count);
@@ -51,12 +50,12 @@ public sealed class OperationsExampleTests : IDisposable
         Assert.Equal("TRP005", diagnostic.Code);
         Assert.Contains("Roles:Remote:ai", diagnostic.Message); Assert.Contains(typeof(AiHost).FullName!, diagnostic.Message);
         // In the hybrid process Gateway is local, so only AI's address is required.
-        Builder("api,gateway", Remote(null, Unreachable));
+        Builder("api-gateway", Remote(null, Unreachable));
     }
     [Fact]
     public async Task CombinedProcessCallsLocallyAndKeepsOperationRoutesOnTheInternalListener()
     {
-        await using var combined = await StartAsync(Builder("ai,api,gateway"));
+        await using var combined = await StartAsync(Builder("combined"));
         using var api = new HttpClient { BaseAddress = Address(combined, "http") };
         Assert.Equal(new WorkspaceView("w1", "Workspace w1", "Workspace w1 holds", 6),
             await api.GetFromJsonAsync<WorkspaceView>("workspaces/w1", TestContext.Current.CancellationToken));
@@ -80,7 +79,7 @@ public sealed class OperationsExampleTests : IDisposable
             await splitClient.GetFromJsonAsync<WorkspaceView>("workspaces/w1", TestContext.Current.CancellationToken));
         Assert.Equal(Routes(("gateway", "remote"), ("ai", "remote")), await RoutesAsync(splitClient));
 
-        await using var hybrid = await StartAsync(Builder("api,gateway", Remote(null, Address(ai, "https"))));
+        await using var hybrid = await StartAsync(Builder("api-gateway", Remote(null, Address(ai, "https"))));
         using var hybridClient = new HttpClient { BaseAddress = Address(hybrid, "http") };
         Assert.Equal("Workspace w3", (await hybridClient.GetFromJsonAsync<WorkspaceView>("workspaces/w3", TestContext.Current.CancellationToken))!.Name);
         Assert.Equal(Routes(("gateway", "local"), ("ai", "remote")), await RoutesAsync(hybridClient));
@@ -113,12 +112,15 @@ public sealed class OperationsExampleTests : IDisposable
         Assert.Contains(error.Diagnostics, d => d.Code == "OPS002" && d.Message.Contains("ai exposes no operation to it"));
     }
 
-    private WebApplicationBuilder Builder(string roles, params string[] extra) => Compose<OperationsComposition>(roles, extra);
-    private WebApplicationBuilder Compose<T>(string roles, string[] extra) where T : ICompositionDefinition, new()
+    private WebApplicationBuilder Builder(string profile, params string[] extra) => Compose<OperationsComposition>(profile, extra);
+    // The selection is a profile name for definitions with profiles, otherwise roles.
+    private WebApplicationBuilder Compose<T>(string selection, string[] extra) where T : ICompositionDefinition, new()
     {
+        var profiles = CompositionExtensions.DeclaredProfiles<T>();
+        var roles = profiles.Count > 0 ? profiles.Single(p => p.Name == selection).Roles : selection.Split(',');
         var args = new List<string>
         {
-            "--roles", roles,
+            profiles.Count > 0 ? "--profile" : "--roles", selection,
             "--Kestrel:Certificates:Default:Path", File("server.pem"), "--Kestrel:Certificates:Default:KeyPath", File("server.key"),
             "--Internal:Callers:api", File("api.pem")
         };

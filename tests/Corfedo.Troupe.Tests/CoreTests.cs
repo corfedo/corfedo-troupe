@@ -48,12 +48,33 @@ public sealed class CoreTests
         Builder("a").Compose<Definition>();
         Assert.Equal(1, callbacks);
     }
+    [Fact]
+    public void DeclaredProfilesAreSelectedByNameAndRecorded()
+    {
+        var builder = Builder(""); builder.Configuration["Profile"] = "both";
+        var manifest = builder.Compose<ProfileDefinition>();
+        Assert.Equal("both", manifest.Profile!.Name); Assert.Equal(["a", "b"], manifest.Roles.Select(r => r.Name));
+        using var host = builder.Build();
+        Assert.Equal("both", host.Services.GetRequiredService<IComposition>().Profile!.Name);
+        Assert.Equal(["both"], CompositionExtensions.DeclaredProfiles<ProfileDefinition>().Select(p => p.Name));
+        Assert.Null(Builder("a").Compose<Definition>().Profile);
+    }
     [Theory]
-    [InlineData("")]
-    [InlineData("unknown")]
-    [InlineData("a")]
-    public void ExactProfilesRejectInvalidSelections(string selection) =>
-        Assert.Throws<CompositionException>(() => Builder(selection).Compose<ProfileDefinition>());
+    [InlineData("", "a,b", "not Roles. Declared profiles: both.")]
+    [InlineData("", "", "Select a declared profile using Profile configuration. Declared profiles: both.")]
+    [InlineData("unknown", "", "Unknown profile unknown. Declared profiles: both.")]
+    public void ExactProfilesRejectInvalidSelections(string profile, string roles, string message)
+    {
+        var builder = Builder(roles); builder.Configuration["Profile"] = profile;
+        var error = Assert.Throws<CompositionException>(() => builder.Compose<ProfileDefinition>());
+        Assert.Contains(error.Diagnostics, d => d.Code == "TRP013" && d.Message.Contains(message));
+    }
+    [Fact]
+    public void ProfileSelectionRequiresDeclaredProfiles()
+    {
+        var builder = Builder("a"); builder.Configuration["Profile"] = "a";
+        Assert.Contains(Assert.Throws<CompositionException>(() => builder.Compose<Definition>()).Diagnostics, d => d.Code == "TRP013");
+    }
     [Fact]
     public void DuplicateRoleAndProfileIdentitiesAreRejected()
     {

@@ -42,12 +42,12 @@ public static class CompositionVerifier
                 session = CompositionSession.TryGet(builder);
                 if (session is not null)
                 {
-                    if (session.DefinitionType != typeof(T) || !session.Runtime.Roles.Select(r => r.Name).SequenceEqual(profile.Roles))
+                    if (session.DefinitionType != typeof(T) || session.Runtime.Profile?.Name != profile.Name)
                         throw new InvalidOperationException("The supplied composition must use this definition and exact profile.");
                 }
                 else
                 {
-                    builder.Configuration["Roles"] = string.Join(',', profile.Roles);
+                    builder.Configuration["Profile"] = profile.Name;
                     builder.Compose<T>(); session = CompositionSession.Get(builder);
                 }
                 if (overrides is not null) session.ApplyTestOverrides(profile, services => overrides(profile, services));

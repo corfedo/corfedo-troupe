@@ -27,7 +27,7 @@ public sealed class DurableMessagingTests
     {
         var result = await CompositionVerifier.VerifyProfilesAsync<DurableMessagingComposition>(
             profile => MessagingApplication.CreateDurableBuilder(
-                ["--roles", string.Join(',', profile.Roles), "--Messaging:ConnectionString", "Host=127.0.0.1;Port=1;Database=unused;Username=unused", "--Kestrel:Endpoints:public:Url", "http://127.0.0.1:0"],
+                ["--profile", profile.Name, "--Messaging:ConnectionString", "Host=127.0.0.1;Port=1;Database=unused;Username=unused", "--Kestrel:Endpoints:public:Url", "http://127.0.0.1:0"],
                 ApplicationExamplesTests.ContentRoot("Messaging")),
             (_, services) => services.Replace(ServiceDescriptor.Singleton<IMessageStore, NullMessageStore>()),
             TestContext.Current.CancellationToken);
@@ -44,7 +44,7 @@ public sealed class DurableMessagingTests
         await using var database = new PostgreSqlBuilder(PostgresImage).WithDatabase("troupe").Build();
         await database.StartAsync(token);
         var connectionString = database.GetConnectionString();
-        await using (var missing = new MessagingProcess(connectionString, ["durable", "--roles", "orders"]))
+        await using (var missing = new MessagingProcess(connectionString, ["durable", "--profile", "orders"]))
         {
             var failure = await missing.ExpectFailureAsync(token);
             Assert.Contains("troupe_messages", failure);
@@ -60,7 +60,7 @@ public sealed class DurableMessagingTests
             await setup.ExpectExitAsync(token);
 
         var incompleteBuilder = MessagingApplication.CreateDurableBuilder(
-            ["--roles", "orders,notifications", "--Messaging:ConnectionString", connectionString,
+            ["--profile", "combined", "--Messaging:ConnectionString", connectionString,
              "--Kestrel:Endpoints:public:Url", "http://127.0.0.1:0"], ApplicationExamplesTests.ContentRoot("Messaging"));
         await using (var incomplete = incompleteBuilder.Build())
         {
@@ -70,9 +70,9 @@ public sealed class DurableMessagingTests
             Assert.Contains(nameof(SendNotificationHandler), failure.Message);
         }
 
-        await using var publisher = new MessagingProcess(connectionString, ["durable", "--roles", "publisher"]);
+        await using var publisher = new MessagingProcess(connectionString, ["durable", "--profile", "publisher"]);
         using var publishing = await publisher.ClientAsync(token);
-        await using (var orders = new MessagingProcess(connectionString, ["durable", "--roles", "orders"]))
+        await using (var orders = new MessagingProcess(connectionString, ["durable", "--profile", "orders"]))
         {
             using var client = await orders.ClientAsync(token);
             var receipt = await SubmitAndReceive(publishing, client, "orders", token);
@@ -81,7 +81,7 @@ public sealed class DurableMessagingTests
             Assert.Equal(HttpStatusCode.NotFound, absent.StatusCode);
             orders.Kill();
         }
-        await using (var notifications = new MessagingProcess(connectionString, ["durable", "--roles", "notifications"]))
+        await using (var notifications = new MessagingProcess(connectionString, ["durable", "--profile", "notifications"]))
         {
             using var client = await notifications.ClientAsync(token);
             Assert.Equal("notifications", (await SubmitAndReceive(publishing, client, "notifications", token)).Consumer);
@@ -102,7 +102,7 @@ public sealed class DurableMessagingTests
         }
         // The acknowledged messages must survive loss of both publishing and consuming processes.
         publisher.Kill();
-        await using var restarted = new MessagingProcess(connectionString, ["durable", "--roles", "orders,notifications"]);
+        await using var restarted = new MessagingProcess(connectionString, ["durable", "--profile", "combined"]);
         using var restartedClient = await restarted.ClientAsync(token);
         var order = await Receipt(restartedClient, orderId, token);
         var notification = await Receipt(restartedClient, notificationId, token);

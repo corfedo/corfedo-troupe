@@ -25,7 +25,7 @@ public sealed class ApplicationExamplesTests
     public async Task WorkerServingProfileVerifiesTheRealDefinition()
     {
         var result = await CompositionVerifier.VerifyProfilesAsync<WorkerComposition>(
-            profile => WorkerApplication.CreateBuilder(["--roles", string.Join(',', profile.Roles)], ContentRoot("Worker")),
+            profile => WorkerApplication.CreateBuilder(["--profile", profile.Name], ContentRoot("Worker")),
             cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(result.Succeeded, result.ToString());
         var profile = Assert.Single(result.Profiles);
@@ -63,7 +63,7 @@ public sealed class ApplicationExamplesTests
     public async Task WebServingProfilesVerifyWithTheApplicationBuilderAndPipeline()
     {
         var result = await CompositionVerifier.VerifyProfilesAsync<WebComposition>(
-            profile => WebBuilder(string.Join(',', profile.Roles)), cancellationToken: TestContext.Current.CancellationToken);
+            profile => WebBuilder(profile.Name), cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(result.Succeeded, result.ToString());
         Assert.Equal(2, result.Profiles.Count);
         Assert.All(result.Profiles, p => Assert.Equal(["routing"], p.AspNetManifest!.Stages));
@@ -74,10 +74,10 @@ public sealed class ApplicationExamplesTests
     }
     [Theory]
     [InlineData("web", false)]
-    [InlineData("health,web", true)]
-    public async Task WebProfilesExposeOnlyTheirSelectedEndpointsOverKestrel(string roles, bool health)
+    [InlineData("combined", true)]
+    public async Task WebProfilesExposeOnlyTheirSelectedEndpointsOverKestrel(string profile, bool health)
     {
-        var builder = WebBuilder(roles); builder.FinalizeComposition();
+        var builder = WebBuilder(profile); builder.FinalizeComposition();
         await using var application = builder.Build(); application.UseComposition();
         await application.StartAsync(TestContext.Current.CancellationToken);
         var addresses = application.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!;
@@ -99,9 +99,9 @@ public sealed class ApplicationExamplesTests
         builder.Configuration["Kestrel:Endpoints:extra:Url"] = "http://127.0.0.1:0";
         Assert.Contains("TRP103", Assert.Throws<CompositionException>(() => builder.FinalizeComposition()).Message);
     }
-    private static WebApplicationBuilder WebBuilder(string roles)
+    private static WebApplicationBuilder WebBuilder(string profile)
     {
-        var builder = WebExample.CreateBuilder(["--roles", roles, "--Kestrel:Endpoints:public:Url", "http://127.0.0.1:0"], ContentRoot("Web"));
+        var builder = WebExample.CreateBuilder(["--profile", profile, "--Kestrel:Endpoints:public:Url", "http://127.0.0.1:0"], ContentRoot("Web"));
         builder.Logging.ClearProviders(); return builder;
     }
     private sealed record RolesResponse(string[] Roles);

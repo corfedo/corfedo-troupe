@@ -5,16 +5,16 @@ and local queue configuration to `WolverineOptions`; the application applies all
 one `IHostApplicationBuilder.UseWolverine` callback. Shared components own the journal, scoped processor,
 receipt handler and HTTP ingress. Wolverine 6.41.0 and its runtime compiler are example dependencies.
 
-| `--roles` | Serving behavior |
-| --- | --- |
-| `orders` | Order request/reply, queued order submission and receipt lookup |
-| `notifications` | Notification request/reply and receipt lookup |
-| `orders,notifications` | Both workflows in one process |
+| `--profile` | Roles | Serving behavior |
+| --- | --- | --- |
+| `orders` | `orders` | Order request/reply, queued order submission and receipt lookup |
+| `notifications` | `notifications` | Notification request/reply and receipt lookup |
+| `combined` | `orders,notifications` | Both workflows in one process |
 
 From the repository root:
 
 ```sh
-dotnet run --project examples/Messaging -- --roles orders,notifications
+dotnet run --project examples/Messaging -- --profile combined
 ```
 
 The configured address is `http://127.0.0.1:5081`. Configuration uses standard IConfiguration providers;
@@ -71,12 +71,12 @@ exercised through the actual CLI in an isolated process and temporary output dir
 The `durable` command uses the same handlers, scoped processors and generated adapters with PostgreSQL
 inbox/outbox storage and transport. `DurableMessagingComposition` declares four exact serving profiles:
 
-| `--roles` | Behavior |
+| `--profile` | Behavior |
 | --- | --- |
 | `publisher` | HTTP submissions at `/orders/queued` and `/notifications/queued`; no consumers |
 | `orders` | PostgreSQL orders listener and `/receipts/{id}` |
 | `notifications` | PostgreSQL notifications listener and `/receipts/{id}` |
-| `orders,notifications` | Both listeners and receipt lookup |
+| `combined` | Both listeners and receipt lookup |
 
 Set `Messaging:ConnectionString` through normal configuration. Use a dedicated example database;
 setup creates Wolverine tables in `troupe_messages` and `troupe_queues`. The provisioning command
@@ -97,8 +97,8 @@ dotnet run --project examples/Messaging -- durable resources setup
 In separate terminals with the same connection configuration, start a publisher and a consumer:
 
 ```sh
-dotnet run --project examples/Messaging -- durable --roles publisher --Kestrel:Endpoints:public:Url http://127.0.0.1:5081
-dotnet run --project examples/Messaging -- durable --roles orders,notifications --Kestrel:Endpoints:public:Url http://127.0.0.1:5082
+dotnet run --project examples/Messaging -- durable --profile publisher --Kestrel:Endpoints:public:Url http://127.0.0.1:5081
+dotnet run --project examples/Messaging -- durable --profile combined --Kestrel:Endpoints:public:Url http://127.0.0.1:5082
 ```
 
 ```sh

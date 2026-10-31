@@ -2,15 +2,10 @@ namespace Corfedo.Troupe;
 
 internal static class Graph
 {
-    internal static (RoleIdentity[] Roles, ContributorBuilder[] Nodes) Resolve(DefinitionBuilder definition, string? selection)
+    internal static (ProfileIdentity? Profile, RoleIdentity[] Roles, ContributorBuilder[] Nodes) Resolve(DefinitionBuilder definition,
+        string? profileSelection, string? roleSelection)
     {
-        var names = (selection ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        if (names.Length == 0) throw Errors.Fail("TRP012", "Select at least one role using Roles configuration.");
-        var unknown = names.Where(n => !definition.Roles.ContainsKey(n)).ToArray();
-        if (unknown.Length > 0) throw Errors.Fail("TRP012", $"Unknown roles: {string.Join(", ", unknown)}.");
-        if (definition.Profiles.Count > 0 && !definition.Profiles.Any(p => names.SequenceEqual(p.Roles)))
-            throw Errors.Fail("TRP013", $"No declared profile for {string.Join(",", names)}.");
+        var (profile, names) = Select(definition, profileSelection, roleSelection);
 
         var nodes = new Dictionary<Type, ContributorBuilder>();
         var path = new List<ContributorBuilder>();
@@ -50,6 +45,28 @@ internal static class Graph
                 .OrderBy(n => n.Owner.Name, StringComparer.Ordinal).First();
             remaining.Remove(next); done.Add(next.Owner.Type!); ordered.Add(next);
         }
-        return (names.Select(n => definition.Roles[n].Identity).ToArray(), ordered.ToArray());
+        return (profile, names.Select(n => definition.Roles[n].Identity).ToArray(), ordered.ToArray());
+    }
+
+    // Declared profiles are the only selection of a composition that declares them; others select roles.
+    private static (ProfileIdentity? Profile, string[] Roles) Select(DefinitionBuilder definition, string? profileSelection, string? roleSelection)
+    {
+        var profileName = string.IsNullOrWhiteSpace(profileSelection) ? null : profileSelection.Trim();
+        var roleNames = (roleSelection ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (definition.Profiles.Count > 0)
+        {
+            var declared = string.Join(", ", definition.Profiles.Select(p => p.Name));
+            if (roleNames.Length > 0) throw Errors.Fail("TRP013", $"Select a declared profile using Profile configuration, not Roles. Declared profiles: {declared}.");
+            if (profileName is null) throw Errors.Fail("TRP013", $"Select a declared profile using Profile configuration. Declared profiles: {declared}.");
+            var profile = definition.Profiles.FirstOrDefault(p => p.Name == profileName)
+                ?? throw Errors.Fail("TRP013", $"Unknown profile {profileName}. Declared profiles: {declared}.");
+            return (profile, [.. profile.Roles]);
+        }
+        if (profileName is not null) throw Errors.Fail("TRP013", "Profile selection requires declared profiles; select roles using Roles configuration.");
+        if (roleNames.Length == 0) throw Errors.Fail("TRP012", "Select at least one role using Roles configuration.");
+        var unknown = roleNames.Where(n => !definition.Roles.ContainsKey(n)).ToArray();
+        if (unknown.Length > 0) throw Errors.Fail("TRP012", $"Unknown roles: {string.Join(", ", unknown)}.");
+        return (null, roleNames);
     }
 }

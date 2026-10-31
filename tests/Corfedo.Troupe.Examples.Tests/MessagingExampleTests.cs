@@ -26,7 +26,7 @@ public sealed class MessagingExampleTests
     public async Task EveryDeclaredServingProfileVerifiesThroughTheRealApplicationAdapter()
     {
         var result = await CompositionVerifier.VerifyProfilesAsync<MessagingComposition>(
-            profile => Builder(string.Join(',', profile.Roles)), cancellationToken: TestContext.Current.CancellationToken);
+            profile => Builder(profile.Name), cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(result.Succeeded, result.ToString()); Assert.Equal(3, result.Profiles.Count);
         foreach (var profile in result.Profiles)
         {
@@ -39,11 +39,10 @@ public sealed class MessagingExampleTests
     [Theory]
     [InlineData("orders", true, false)]
     [InlineData("notifications", false, true)]
-    [InlineData("orders,notifications", true, true)]
-    [InlineData("notifications,orders", true, true)]
-    public async Task StaticGeneratedHandlersServeOnlySelectedRolesWithScopedDisposal(string roles, bool orders, bool notifications)
+    [InlineData("combined", true, true)]
+    public async Task StaticGeneratedHandlersServeOnlySelectedRolesWithScopedDisposal(string profile, bool orders, bool notifications)
     {
-        var builder = Builder(roles); builder.FinalizeComposition();
+        var builder = Builder(profile); builder.FinalizeComposition();
         await using var application = builder.Build(); application.UseComposition();
         await application.StartAsync(TestContext.Current.CancellationToken);
         Assert.Equal(TypeLoadMode.Static, application.Services.GetRequiredService<WolverineOptions>().CodeGeneration.TypeLoadMode);
@@ -93,23 +92,18 @@ public sealed class MessagingExampleTests
         Assert.Empty(errors.Messages);
     }
     [Fact]
-    public async Task ContributionOwnershipAndOrderAreIndependentOfSelectionOrder()
+    public async Task SharedComponentsAreComposedOnceWithEveryRolesContribution()
     {
-        var snapshots = new List<CompositionManifest>();
-        foreach (var roles in new[] { "orders,notifications", "notifications,orders" })
-        {
-            var builder = Builder(roles); await using var application = builder.Build(); application.UseComposition();
-            var manifest = application.Services.GetRequiredService<IComposition>().Manifest; snapshots.Add(manifest);
-            Assert.Single(manifest.Contributors, contributor => contributor.Owner.Type == typeof(MessageProcessing));
-            Assert.Single(manifest.Services, service => service.ServiceType == typeof(MessageJournal) && service.Active);
-        }
-        Assert.Equal(snapshots[0].Contributions.Select(c => c.Owner), snapshots[1].Contributions.Select(c => c.Owner));
-        Assert.Equal(3, snapshots[0].Contributions.Count);
+        var builder = Builder("combined"); await using var application = builder.Build(); application.UseComposition();
+        var manifest = application.Services.GetRequiredService<IComposition>().Manifest;
+        Assert.Single(manifest.Contributors, contributor => contributor.Owner.Type == typeof(MessageProcessing));
+        Assert.Single(manifest.Services, service => service.ServiceType == typeof(MessageJournal) && service.Active);
+        Assert.Equal(3, manifest.Contributions.Count);
     }
     [Fact]
     public async Task IncompleteCompiledArtifactFailsStaticStartupForTheMissingConsumer()
     {
-        var builder = Builder("orders,notifications");
+        var builder = Builder("combined");
         await using var application = builder.Build(); application.UseComposition();
         var options = application.Services.GetRequiredService<WolverineOptions>();
         options.ApplicationAssembly = typeof(ArtifactAssembly).Assembly;
@@ -195,9 +189,9 @@ public sealed class MessagingExampleTests
         { if (IsEnabled(level)) Messages.Enqueue(formatter(state, exception) + Environment.NewLine + exception); }
         public void Dispose() { }
     }
-    private static WebApplicationBuilder Builder(string roles)
+    private static WebApplicationBuilder Builder(string profile)
     {
-        var builder = MessagingApplication.CreateBuilder(["--roles", roles, "--Kestrel:Endpoints:public:Url", "http://127.0.0.1:0"], ApplicationExamplesTests.ContentRoot("Messaging"));
+        var builder = MessagingApplication.CreateBuilder(["--profile", profile, "--Kestrel:Endpoints:public:Url", "http://127.0.0.1:0"], ApplicationExamplesTests.ContentRoot("Messaging"));
         builder.Logging.ClearProviders(); return builder;
     }
     private static HttpClient Client(WebApplication application)

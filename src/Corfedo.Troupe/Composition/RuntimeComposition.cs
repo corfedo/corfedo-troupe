@@ -1,8 +1,9 @@
 namespace Corfedo.Troupe;
 
-internal sealed class RuntimeComposition(IReadOnlyList<RoleIdentity> roles, IReadOnlySet<Type> contributors) : IComposition
+internal sealed class RuntimeComposition(ProfileIdentity? profile, IReadOnlyList<RoleIdentity> roles, IReadOnlySet<Type> contributors) : IComposition
 {
     private PublishedComposition? published;
+    public ProfileIdentity? Profile { get; } = profile;
     public IReadOnlyList<RoleIdentity> Roles { get; } = roles;
     public bool Contains<TRole>() where TRole : IRole => Roles.Any(r => r.Type == typeof(TRole));
     public bool Includes<TComponent>() where TComponent : IComponent => Includes(typeof(TComponent));

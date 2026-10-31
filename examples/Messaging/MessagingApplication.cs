@@ -37,7 +37,7 @@ public static class MessagingApplication
     public static HostApplicationBuilder CreateDurableProvisioningBuilder(string[] args)
     {
         var builder = Host.CreateApplicationBuilder(args);
-        builder.Configuration["Roles"] = "provision";
+        builder.Configuration["Profile"] = "provision";
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Compose<DurableProvisioningComposition>();
         ConfigureWolverine(builder, TypeLoadMode.Static, durable: true);
