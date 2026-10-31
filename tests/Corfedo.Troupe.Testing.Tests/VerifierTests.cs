@@ -201,6 +201,32 @@ public sealed class VerifierTests
         Assert.Contains(result.Failures, f => f.Exception.InnerException?.Message == "rule failed");
     }
     [Fact]
+    public async Task IncludesAndConditionalReadsAreEvaluatedPerProfile()
+    {
+        var included = new Dictionary<string, bool>();
+        A.Declare = r =>
+        {
+            r.Requires<Remote>(); r.Options<Probe>("Probe");
+            r.Services(s => s.AddOptions<Probe>().Configure<IComposition>((_, c) => included["a"] = c.Includes<Remote>()));
+        };
+        B.Declare = r =>
+        {
+            r.ReadsConfigurationUnless<Remote>("Remote"); r.Options<Probe>("Probe");
+            r.Services(s => s.AddOptions<Probe>().Configure<IComposition>((_, c) => included["b"] = c.Includes<Remote>()));
+        };
+        var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(Builder, cancellationToken: TestContext.Current.CancellationToken);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("b", failure.Profile.Name);
+        Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP005" && d.Message.Contains(typeof(Remote).FullName!));
+        Assert.Equal(new Dictionary<string, bool> { ["a"] = true }, included);
+        result = await CompositionVerifier.VerifyProfilesAsync<Definition>(profile =>
+        {
+            var builder = Builder(profile); builder.Configuration["Remote:Address"] = "https://remote"; return builder;
+        }, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(result.Succeeded, result.ToString());
+        Assert.Equal(new Dictionary<string, bool> { ["a"] = true, ["b"] = false }, included);
+    }
+    [Fact]
     public async Task ProviderFactorySuppliedByApplicationIsPreserved()
     {
         var factory = new RecordingProviderFactory();
@@ -271,6 +297,7 @@ public sealed class VerifierTests
     }
     public sealed class Ingress : IComponent
     { public void Compose(IComponentBuilder c) { c.Use("routing", a => a.UseRouting()); c.KestrelEndpoint("public"); } }
+    public sealed class Remote : IComponent { public void Compose(IComponentBuilder c) { } }
     public sealed class Probe { public int Count { get; set; } }
     public interface IValue { int Count { get; } }
     public sealed class Original : IValue { public int Count => 0; }

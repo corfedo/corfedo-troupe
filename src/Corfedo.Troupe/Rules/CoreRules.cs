@@ -8,10 +8,11 @@ internal static class CoreRules
 {
     internal static IEnumerable<CompositionDiagnostic> Evaluate(CompositionSession session, CompositionManifest manifest)
     {
-        foreach (var read in manifest.Configuration.Where(r => r.Required))
+        foreach (var read in manifest.Configuration.Where(r => r.Required || r.UnlessComposed is { } absent && !session.Runtime.Includes(absent)))
             if (!session.Configuration.GetSection(read.Section).Exists())
-                yield return Diagnostic("TRP005", DiagnosticSeverity.Error,
-                    $"{read.Owner.Name}: required section {read.Section} is missing.", [read.Owner]);
+                yield return Diagnostic("TRP005", DiagnosticSeverity.Error, read.UnlessComposed is { } component
+                    ? $"{read.Owner.Name}: section {read.Section} is required because {component.FullName ?? component.Name} is not composed in this process."
+                    : $"{read.Owner.Name}: required section {read.Section} is missing.", [read.Owner]);
         var active = manifest.Services.Where(s => s.Active).ToArray();
         foreach (var slot in active.GroupBy(s => (s.ServiceType, s.Key)))
         {

@@ -57,6 +57,8 @@ public interface IContributorBuilder
         where T : class, new() where TValidator : class, IValidateOptions<T>;
     /// <summary>Records a manual configuration read and enforces required section presence.</summary>
     void ReadsConfiguration(string section, bool required = true);
+    /// <summary>Records a manual configuration read that is required only when the component is not composed in this process.</summary>
+    void ReadsConfigurationUnless<TComponent>(string section) where TComponent : IComponent;
     /// <summary>Records a sequential check in Troupe's StartingAsync, after hosted construction and startup options validation.</summary>
     void Check(Func<IServiceProvider, CancellationToken, Task> check);
     /// <summary>Records a callback for an application-owned third-party builder.</summary>
@@ -77,6 +79,8 @@ public interface IComposition
 {
     /// <summary>Tests whether the role belongs to this process.</summary>
     bool Contains<TRole>() where TRole : IRole;
+    /// <summary>Tests whether the component is composed in this process.</summary>
+    bool Includes<TComponent>() where TComponent : IComponent;
     /// <summary>Gets selected roles in ordinal name order.</summary>
     IReadOnlyList<RoleIdentity> Roles { get; }
     /// <summary>Gets the last successfully validated immutable snapshot, including completed adapter and test boundaries.</summary>

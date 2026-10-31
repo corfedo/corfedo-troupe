@@ -53,6 +53,11 @@ internal sealed class ContributorBuilder(CompositionOwner owner) : IRoleBuilder,
         EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(section);
         configuration.Add(new(Owner, section, required, null));
     }
+    public void ReadsConfigurationUnless<TComponent>(string section) where TComponent : IComponent
+    {
+        EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(section);
+        configuration.Add(new(Owner, section, false, null, typeof(TComponent)));
+    }
     public void Check(Func<IServiceProvider, CancellationToken, Task> check)
     {
         ArgumentNullException.ThrowIfNull(check);

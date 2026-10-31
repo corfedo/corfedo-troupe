@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,7 +30,7 @@ internal sealed class CompositionSession
         configuration = builder.Configuration;
         ledger = new(builder.Services);
         rules = definition.Rules.ToArray();
-        Runtime = new(Array.AsReadOnly(roles));
+        Runtime = new(Array.AsReadOnly(roles), nodes.Select(n => n.Owner.Type!).ToFrozenSet());
         contributors = Array.AsReadOnly(nodes.Select(n => new ContributorEntry(n.Owner,
             Array.AsReadOnly(n.Requirements.Keys.Select(t => nodes.Single(x => x.Owner.Type == t).Owner)
                 .OrderBy(o => o.Name, StringComparer.Ordinal).ToArray()))).ToArray());

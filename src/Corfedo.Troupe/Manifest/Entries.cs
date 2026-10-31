@@ -66,7 +66,8 @@ public sealed record ServiceMutation(long Sequence, ServiceMutationKind Kind, Co
 /// <summary>Records declared configuration intent without storing values.</summary>
 /// <param name="Owner">The declaring owner.</param><param name="Section">The configuration path.</param>
 /// <param name="Required">Whether the section must exist.</param><param name="OptionsType">The bound type, when applicable.</param>
-public sealed record ConfigurationRead(CompositionOwner Owner, string Section, bool Required, Type? OptionsType);
+/// <param name="UnlessComposed">A component whose presence in this process makes the section optional; when it is absent, the section must exist.</param>
+public sealed record ConfigurationRead(CompositionOwner Owner, string Section, bool Required, Type? OptionsType, Type? UnlessComposed = null);
 /// <summary>Describes a deferred builder contribution.</summary>
 /// <param name="Owner">The declaring owner.</param><param name="TargetType">The exact application builder type.</param>
 /// <param name="Applied">Whether the callback completed.</param>
