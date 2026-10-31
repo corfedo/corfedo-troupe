@@ -60,7 +60,6 @@ public sealed class WebTests
         };
         var builder = Builder("b,a"); builder.Compose<Definition>();
         await using var app = builder.Build(); app.UseComposition();
-        Assert.Throws<InvalidOperationException>(() => app.UseComposition());
         var runtime = app.Services.GetRequiredService<IComposition>();
         Assert.All(runtime.AspNetCore().Endpoints, e => Assert.NotNull(e.Endpoint.Metadata.GetMetadata<EndpointOwner>()));
         Assert.DoesNotContain(runtime.Manifest.Diagnostics, d => d.Code == "TRP102");

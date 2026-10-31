@@ -56,8 +56,12 @@ Stateless, parameterless definitions only declare: no I/O or resource acquisitio
 execute after graph validation. Runtime consumers inject `IComposition` for membership and snapshots.
 
 Keep `ValidateOnBuild` and `ValidateScopes` enabled, as the examples do. Finalize after adapters and
-before Build to capture application registrations and reject unconsumed contributions. Each exact
-builder target type is applied once. The web pipeline and startup coordinator also finalize.
+before Build to capture application registrations and reject unconsumed contributions. This early call is
+optional; pipeline application and startup use the same session-owned finalization operation. Each exact
+builder target type is applied once. Declaration builders close when their Compose callbacks return.
+A failed composition cannot be reused; callback failures retain their owner, original exception and
+failure manifest. Runtime IComposition exposes successfully validated snapshots, separately from the build
+session. Completed declaration and execution callbacks are released when their work ends.
 
 `Options<T>(section)` binds one owned section per type and adds required presence validation and
 ValidateOnStart. A second declaration is an error. `Options<T,TValidator>` explicitly registers a
@@ -78,13 +82,15 @@ Declare application stage names with `Stages(...)`, including an explicit root U
 endpoint-aware middleware. Own root authentication and authorization explicitly. Conditional UseWhen
 authentication needs the application adapter's version-sensitive `__AuthenticationMiddlewareSet` marker;
 Troupe does not suppress authentication. `app.UseComposition()` applies stages once, then maps empty-prefix
-endpoint owner groups. `composition.AspNetCore()` exposes endpoint metadata and listener requirements.
+endpoint owner groups. Startup and profile verification reject recorded pipelines that were not applied.
+Endpoint inspection captures the inventory at UseComposition: map application endpoints before that call,
+or declare them through Troupe. `composition.AspNetCore()` exposes endpoint metadata and listener requirements.
 
 `KestrelEndpoint(name)` requires `Kestrel:Endpoints:<name>`. Missing and unrequested configured names
 are errors. After Compose, install customization with `builder.ConfigureCompositionEndpoint(name, callback)`.
 A second tracked callback is rejected before Kestrel replaces TLS policy. Resolve trust through
-`ListenOptions.ApplicationServices`. Initialize the loader once with `reloadOnChange: false`, before
-callbacks, as the example does. Topology changes require restart; raw Kestrel calls remain untracked.
+`ListenOptions.ApplicationServices`. The loader must read the `Kestrel` configuration section. Initialize it
+once with `reloadOnChange: false`, before callbacks, as the example does. Topology changes require restart; raw Kestrel calls remain untracked.
 Actual bind conflicts belong to Kestrel.
 
 ```csharp
@@ -95,9 +101,10 @@ var result = await CompositionVerifier.VerifyProfilesAsync<AppComposition>(
 ```
 
 Supply a fresh HostApplicationBuilder or WebApplicationBuilder per declared profile. Verification composes,
-applies privileged test-owned overrides, enables standard provider validation, builds, resolves declared
-options, maps web endpoints and disposes every built host asynchronously when available. A factory may return
-the same definition already composed with adapters applied for that exact profile. Independent profile and
+applies privileged test-owned overrides, preserves the application provider factory, builds, resolves declared
+options, maps web endpoints and disposes every built host asynchronously when available. The supplied builder
+owns provider validation settings; enable ValidateOnBuild and ValidateScopes for the default provider.
+A factory may return the same definition already composed with adapters applied for that exact profile. Independent profile and
 cleanup failures are reported together. Lifecycle code never runs, but callbacks, Build, options and mapping
 can have effects: use inert overrides and isolation. Factory bodies and arbitrary services are not probed.
 
@@ -110,3 +117,5 @@ hosts and constraints; custom policies need HTTP tests. ASP0022/ASP0023 remain e
 Named options, live topology changes, Corfedo/Wolverine adapters and Native AOT guarantees are outside this
 alpha. gRPC/MCP ownership has no executable package tests here. See [LICENSE](LICENSE) and [NOTICE](NOTICE)
 for Apache-2.0 terms and the reservation of Corfedo names, logos and brand assets.
+
+The internal lifecycle decisions and verification scope are in [the design note](docs/designs/composition-lifecycle.md).

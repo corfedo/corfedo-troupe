@@ -18,6 +18,7 @@ public sealed class VerifierTests
     private static HostApplicationBuilder Builder(ProfileIdentity profile)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
+        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Configuration["Roles"] = string.Join(',', profile.Roles);
         builder.Configuration["Probe:Count"] = "2";
         return builder;
@@ -127,6 +128,7 @@ public sealed class VerifierTests
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
             builder.Configuration["Kestrel:Endpoints:public:Url"] = "http://127.0.0.1:0";
+            builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
             return builder;
         }, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Single(result.Failures);
@@ -196,7 +198,46 @@ public sealed class VerifierTests
         RuleDefinition.State = state;
         var result = await CompositionVerifier.VerifyProfilesAsync<RuleDefinition>(Builder, cancellationToken: TestContext.Current.CancellationToken);
         Assert.False(result.Succeeded); Assert.Equal(1, disposed);
-        Assert.Contains(result.Failures, f => f.Exception.Message == "rule failed");
+        Assert.Contains(result.Failures, f => f.Exception.InnerException?.Message == "rule failed");
+    }
+    [Fact]
+    public async Task ProviderFactorySuppliedByApplicationIsPreserved()
+    {
+        var factory = new RecordingProviderFactory();
+        var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(profile =>
+        {
+            var builder = Builder(profile); builder.ConfigureContainer(factory); return builder;
+        }, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(result.Succeeded, result.ToString()); Assert.Equal(2, factory.Builders); Assert.Equal(2, factory.Providers);
+    }
+    [Fact]
+    public async Task MissingRoutingFailureManifestIncludesItsCause()
+    {
+        A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));
+        var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(profile =>
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
+            builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
+            return builder;
+        }, cancellationToken: TestContext.Current.CancellationToken);
+        var failure = Assert.Single(result.Failures);
+        Assert.Equal("a", failure.Profile.Name);
+        Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP100" && d.Message.Contains("UseRouting"));
+    }
+    [Fact]
+    public async Task GenericVerificationCannotIgnoreDeclaredWebPipeline()
+    {
+        A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));
+        var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(Builder, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Contains(Assert.Single(result.Failures).Manifest!.Diagnostics, d => d.Code == "TRP105");
+    }
+    private sealed class RecordingProviderFactory : IServiceProviderFactory<IServiceCollection>
+    {
+        private readonly DefaultServiceProviderFactory inner = new(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        internal int Builders;
+        internal int Providers;
+        public IServiceCollection CreateBuilder(IServiceCollection services) { Builders++; return inner.CreateBuilder(services); }
+        public IServiceProvider CreateServiceProvider(IServiceCollection services) { Providers++; return inner.CreateServiceProvider(services); }
     }
     public sealed class RuleState { public bool Throw; }
     public sealed class RuleDefinition : ICompositionDefinition

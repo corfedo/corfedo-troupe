@@ -9,16 +9,16 @@ internal static class CoreRules
     internal static IEnumerable<CompositionDiagnostic> Evaluate(CompositionSession session, CompositionManifest manifest)
     {
         foreach (var read in manifest.Configuration.Where(r => r.Required))
-            if (!session.Builder.Configuration.GetSection(read.Section).Exists())
+            if (!session.Configuration.GetSection(read.Section).Exists())
                 yield return Diagnostic("TRP005", DiagnosticSeverity.Error,
                     $"{read.Owner.Name}: required section {read.Section} is missing.", [read.Owner]);
         var active = manifest.Services.Where(s => s.Active).ToArray();
         foreach (var slot in active.GroupBy(s => (s.ServiceType, s.Key)))
         {
             var owners = slot.Select(s => s.Owner).Distinct().ToArray();
-            if (session.Exclusive.Contains(slot.Key) && slot.Count() > 1)
+            if (session.IsExclusive(slot.Key.ServiceType, slot.Key.Key) && slot.Count() > 1)
                 yield return Diagnostic("TRP004", DiagnosticSeverity.Error, $"Exclusive service slot {slot.Key} has {slot.Count()} registrations.", owners);
-            else if (owners.Length > 1 && !session.Multiple.Contains(slot.Key.ServiceType) && !Excluded(slot.Key.ServiceType))
+            else if (owners.Length > 1 && !session.AllowsMultiple(slot.Key.ServiceType) && !Excluded(slot.Key.ServiceType))
                 yield return Diagnostic("TRP001", DiagnosticSeverity.Advisory, $"Service slot {slot.Key} repeats across {string.Join(", ", owners.Select(o => o.Name))}.", owners);
         }
         var hosted = active.Where(s => s.ServiceType == typeof(IHostedService) && s.Key is null).ToArray();

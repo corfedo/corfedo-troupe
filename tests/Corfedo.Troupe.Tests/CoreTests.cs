@@ -180,7 +180,7 @@ public sealed class CoreTests
         var target = new List<string>(); builder.ApplyContributions(target);
         Assert.Equal(["a", "b"], target);
         Assert.All(builder.FinalizeComposition().Contributions, c => Assert.True(c.Applied));
-        Assert.Throws<InvalidOperationException>(() => builder.ApplyContributions(new List<string>()));
+        Assert.Throws<CompositionException>(() => builder.ApplyContributions(new List<string>()));
         var pending = Builder(); pending.Compose<Definition>();
         Assert.Contains("TRP008", Assert.Throws<CompositionException>(() => pending.FinalizeComposition()).Message);
         var duplicate = Builder(); duplicate.Compose<Definition>(); duplicate.ApplyContributions(new List<string>());

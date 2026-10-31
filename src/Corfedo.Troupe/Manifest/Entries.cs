@@ -96,6 +96,9 @@ public sealed class CompositionManifest
         Roles = roles; Contributors = contributors; Services = services; ServiceMutations = mutations;
         Configuration = configuration; Contributions = contributions; Diagnostics = diagnostics;
     }
+    internal CompositionManifest WithDiagnostics(IEnumerable<CompositionDiagnostic> diagnostics) =>
+        new(Roles, Contributors, Services, ServiceMutations, Configuration, Contributions,
+            Array.AsReadOnly(diagnostics.Distinct(DiagnosticComparer.Instance).ToArray()));
     /// <summary>Gets the selected roles.</summary>
     public IReadOnlyList<RoleIdentity> Roles { get; }
     /// <summary>Gets the canonical dependency-first execution order.</summary>
@@ -115,8 +118,8 @@ public sealed class CompositionManifest
 /// <summary>Reports composition errors and the available manifest snapshot.</summary>
 public sealed class CompositionException : Exception
 {
-    internal CompositionException(IEnumerable<CompositionDiagnostic> diagnostics, CompositionManifest? manifest = null)
-        : base(string.Join(Environment.NewLine, diagnostics.Select(d => $"{d.Code}: {d.Message}")))
+    internal CompositionException(IEnumerable<CompositionDiagnostic> diagnostics, CompositionManifest? manifest = null, Exception? innerException = null)
+        : base(string.Join(Environment.NewLine, diagnostics.Select(d => $"{d.Code}: {d.Message}")), innerException)
     { Diagnostics = Array.AsReadOnly(diagnostics.ToArray()); Manifest = manifest; }
     /// <summary>Gets the errors responsible for failure.</summary>
     public IReadOnlyList<CompositionDiagnostic> Diagnostics { get; }

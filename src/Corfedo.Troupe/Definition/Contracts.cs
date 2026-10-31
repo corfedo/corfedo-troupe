@@ -79,7 +79,7 @@ public interface IComposition
     bool Contains<TRole>() where TRole : IRole;
     /// <summary>Gets selected roles in ordinal name order.</summary>
     IReadOnlyList<RoleIdentity> Roles { get; }
-    /// <summary>Gets a snapshot of recorded composition, including completed adapter and test boundaries.</summary>
+    /// <summary>Gets the last successfully validated immutable snapshot, including completed adapter and test boundaries.</summary>
     CompositionManifest Manifest { get; }
 }
 

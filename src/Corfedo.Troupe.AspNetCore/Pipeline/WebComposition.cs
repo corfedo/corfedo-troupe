@@ -1,45 +1,49 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
 
 namespace Corfedo.Troupe.AspNetCore;
 
-internal sealed class WebComposition : ICompositionRule
+internal sealed class WebComposition : ICompositionIntegration
 {
-    internal readonly CompositionSession Session;
-    internal readonly string[] Stages;
-    internal readonly List<(CompositionOwner Owner, string Stage, Action<IApplicationBuilder> Configure)> Middleware = [];
-    internal readonly List<(CompositionOwner Owner, Action<IEndpointRouteBuilder> Map)> Mappings = [];
-    internal readonly Dictionary<string, List<CompositionOwner>> Requested = new(StringComparer.OrdinalIgnoreCase);
-    internal readonly Dictionary<string, CompositionOwner> Callbacks = new(StringComparer.OrdinalIgnoreCase);
-    internal readonly List<EndpointEntry> Endpoints = [];
-    internal bool Applied;
+    private readonly CompositionSession session;
+    private readonly string[] stages;
+    private readonly List<(CompositionOwner Owner, string Stage, Action<IApplicationBuilder> Configure)> middleware = [];
+    private readonly List<(CompositionOwner Owner, Action<IEndpointRouteBuilder> Map)> mappings = [];
+    private readonly List<EndpointEntry> endpoints = [];
+    private readonly List<CompositionOwner> pipelineOwners = [];
 
-    private WebComposition(CompositionSession session)
+    internal WebComposition(CompositionSession session, string[] stages)
+    { this.session = session; this.stages = (string[])stages.Clone(); Listeners = new(session.Configuration); }
+    internal KestrelComposition Listeners { get; }
+    public IReadOnlyList<CompositionOwner> PipelineOwners => pipelineOwners.AsReadOnly();
+
+    internal void AddMiddleware(CompositionOwner owner, string stage, Action<IApplicationBuilder> configure)
+    { middleware.Add((owner, stage, configure)); AddOwner(owner); }
+    internal void AddEndpoints(CompositionOwner owner, Action<IEndpointRouteBuilder> map)
+    { mappings.Add((owner, map)); AddOwner(owner); }
+    private void AddOwner(CompositionOwner owner) { if (!pipelineOwners.Contains(owner)) pipelineOwners.Add(owner); }
+
+    internal void Apply(WebApplication application)
     {
-        Session = session;
-        Stages = session.Definition.Extensions.TryGetValue(typeof(WebComposition), out var stages) ? (string[])stages : [];
-        session.InternalRules.Add(this);
-    }
-    internal static WebComposition Get(CompositionSession session)
-    {
-        if (!session.Extensions.TryGetValue(typeof(WebComposition), out var value))
-        { value = new WebComposition(session); session.Extensions.Add(typeof(WebComposition), value); }
-        return (WebComposition)value;
+        foreach (var stage in stages)
+            foreach (var contribution in middleware.Where(m => m.Stage == stage))
+                session.RunPipelineCallback(contribution.Owner, () => contribution.Configure(application));
+        if (mappings.Count > 0 && !RoutingBoundary.HasRootRouting(application))
+            throw session.Fail("TRP100", "Endpoint composition requires an explicit root UseRouting callback in an application-declared stage.", pipelineOwners.ToArray());
+        foreach (var (owner, map) in mappings)
+            session.RunPipelineCallback(owner, () => map(application.MapGroup("").WithMetadata(new EndpointOwner(owner))));
+        session.RunPipelineCallback(ServiceLedger.Application, () => endpoints.AddRange(
+            ((IEndpointRouteBuilder)application).DataSources.SelectMany(d => d.Endpoints)
+                .Select(e => new EndpointEntry(e, e.Metadata.GetMetadata<EndpointOwner>()?.Owner ?? ServiceLedger.Application))));
     }
     public IEnumerable<CompositionDiagnostic> Evaluate(CompositionManifest manifest)
     {
-        foreach (var middleware in Middleware.Where(m => !Stages.Contains(m.Stage, StringComparer.Ordinal)))
-            yield return new("TRP100", DiagnosticSeverity.Error, $"{middleware.Owner.Name} uses undeclared stage {middleware.Stage}.", Array.AsReadOnly(new[] { middleware.Owner }));
-        var configured = Session.Builder.Configuration.GetSection("Kestrel:Endpoints").GetChildren().Select(s => s.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var requested in Requested)
-            if (!configured.Contains(requested.Key))
-                yield return new("TRP103", DiagnosticSeverity.Error, $"Requested Kestrel endpoint {requested.Key} is missing from Kestrel:Endpoints.", Array.AsReadOnly(requested.Value.ToArray()));
-        foreach (var extra in configured.Where(n => !Requested.ContainsKey(n)))
-            yield return new("TRP103", DiagnosticSeverity.Error, $"Configured Kestrel endpoint {extra} is not requested by this composition.", Array.AsReadOnly(new[] { ServiceLedger.Application }));
-        foreach (var diagnostic in EndpointRules.Evaluate(Endpoints)) yield return diagnostic;
+        foreach (var contribution in middleware.Where(m => !stages.Contains(m.Stage, StringComparer.Ordinal)))
+            yield return new("TRP100", DiagnosticSeverity.Error, $"{contribution.Owner.Name} uses undeclared stage {contribution.Stage}.", Array.AsReadOnly(new[] { contribution.Owner }));
+        foreach (var diagnostic in Listeners.Evaluate()) yield return diagnostic;
+        foreach (var diagnostic in EndpointRules.Evaluate(endpoints)) yield return diagnostic;
     }
-    internal AspNetCompositionManifest Snapshot() => new(Array.AsReadOnly((string[])Stages.Clone()),
-        Array.AsReadOnly(Endpoints.ToArray()), Array.AsReadOnly(Requested.OrderBy(p => p.Key, StringComparer.Ordinal)
-            .Select(p => new KestrelEndpointEntry(p.Key, Array.AsReadOnly(p.Value.ToArray()), Callbacks.GetValueOrDefault(p.Key))).ToArray()));
+    public object Snapshot() => new AspNetCompositionManifest(Array.AsReadOnly((string[])stages.Clone()),
+        Array.AsReadOnly(endpoints.ToArray()), Listeners.Snapshot());
+    public void ReleaseCallbacks() { middleware.Clear(); mappings.Clear(); }
 }

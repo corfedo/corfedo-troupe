@@ -27,7 +27,8 @@ internal static class Graph
             var node = new ContributorBuilder(owner);
             nodes.Add(type, node);
             path.Add(node);
-            declare(node);
+            try { declare(node); }
+            finally { node.Close(); }
             foreach (var (required, callback) in node.Requirements.OrderBy(x => x.Key.FullName, StringComparer.Ordinal))
                 Visit(required, new(OwnerKind.Component, required.FullName ?? required.Name, required), callback);
             path.RemoveAt(path.Count - 1);
