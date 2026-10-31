@@ -11,6 +11,8 @@
     <Copyright>Copyright 2026 Wojciech Wentland</Copyright>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Version>0.1.0-alpha.1</Version>
+    <RepositoryUrl>https://github.com/corfedo/corfedo-troupe</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/corfedo/corfedo-troupe</PackageProjectUrl>
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" />
