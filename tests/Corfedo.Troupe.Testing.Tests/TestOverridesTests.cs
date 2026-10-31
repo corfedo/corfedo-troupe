@@ -1,3 +1,5 @@
+using Corfedo.Troupe.AspNetCore;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -94,6 +96,47 @@ public sealed class TestOverridesTests
         Assert.Equal("TRP016", Assert.Single(error.Diagnostics).Code);
         Assert.DoesNotContain(error.Manifest!.Services, s => s.Owner.Kind == OwnerKind.Test);
         Assert.True(Assert.Single(error.Manifest.Services, s => s.ImplementationType == typeof(Original)).Active);
+    }
+    [Fact]
+    public void OwnerOverloadReplacesTheApplicationsRegistrationBesideAComponents()
+    {
+        A.Declare = r => r.Services(s => s.AddSingleton<IValue, Original>());
+        var builder = Builder(); builder.Services.AddSingleton<IValue, Other>(); builder.Compose<Definition>();
+        builder.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Replacement>(), new CompositionOwner(OwnerKind.Application, "application"));
+        var manifest = builder.FinalizeComposition();
+        Assert.Equal(Fake, Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Other)).RemovedBy);
+        Assert.True(Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Original)).Active);
+        Assert.Equal(Fake, Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Replacement)).Owner);
+    }
+    [Fact]
+    public void ReplacingAnAlreadyRemovedTargetFailsWithTrp019()
+    {
+        A.Declare = r => r.Services(s => s.AddSingleton<IValue, Original>());
+        var builder = Builder(); builder.Compose<Definition>();
+        builder.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Replacement>(), owner: typeof(A));
+        var error = Assert.Throws<CompositionException>(() =>
+            builder.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Other>(), owner: typeof(A)));
+        Assert.Contains(error.Diagnostics, d => d.Code == "TRP019" && d.Message.Contains("no active registration owned by"));
+    }
+    [Fact]
+    public void TestServicesMayRemoveTheirOwnEarlierRegistration()
+    {
+        var builder = Builder(); builder.Compose<Definition>();
+        builder.TestServices("fake", services => services.AddSingleton<IValue, Replacement>());
+        builder.TestServices("fake", services => services.RemoveAll<IValue>());
+        var manifest = builder.FinalizeComposition();
+        Assert.Equal(Fake, Assert.Single(manifest.Services, s => s.ServiceType == typeof(IValue)).RemovedBy);
+    }
+    [Fact]
+    public void OverridesAfterUseCompositionFailWithTrp016()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
+        builder.Configuration["Roles"] = "a";
+        A.Declare = r => r.Services(s => s.AddSingleton<IValue, Original>());
+        builder.Compose<Definition>(); builder.FinalizeComposition();
+        using var application = builder.Build(); application.UseComposition();
+        var error = Assert.Throws<CompositionException>(() => builder.ReplaceForTest<IValue>("fake", ServiceDescriptor.Singleton<IValue, Replacement>()));
+        Assert.Equal("TRP016", Assert.Single(error.Diagnostics).Code);
     }
     public sealed class Definition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<B>(); }

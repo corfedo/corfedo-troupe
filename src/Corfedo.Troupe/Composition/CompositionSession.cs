@@ -61,7 +61,9 @@ internal sealed class CompositionSession
     }
     internal void Execute(CompositionOwner owner, Action<CompositionSession, CompositionOwner> action) =>
         Invoke(owner, "registration", () => action(this, owner));
-    internal void CompleteComposition() { RequirePhase(CompositionPhase.Composing); Phase = CompositionPhase.Configuring; }
+    internal void CompleteComposition() { RequirePhase(CompositionPhase.Composing); Phase = CompositionPhase.Configuring; ActionsExecuted = true; }
+    // Whether every composed contributor's recorded actions ran; false in a snapshot of a composition that failed before that.
+    internal bool ActionsExecuted { get; private set; }
 
     internal void ConfigureServices(CompositionOwner owner, Action<IServiceCollection> callback)
     {
@@ -107,12 +109,12 @@ internal sealed class CompositionSession
         RequireWritableServices(owner);
         Invoke(owner, "test overrides", () => ledger!.Configure(owner, callback, privileged));
     }
-    internal void ReplaceForTest(string name, ServiceDescriptor replacement, Type? ownerType)
+    internal void ReplaceForTest(string name, ServiceDescriptor replacement, Func<CompositionOwner, bool>? target, string narrowed)
     {
         RequirePhase(CompositionPhase.Configuring, CompositionPhase.Finalized);
         var owner = TestOwner(name);
         RequireWritableServices(owner);
-        Invoke(owner, "test replacement", () => ledger!.Replace(owner, replacement, ownerType));
+        Invoke(owner, "test replacement", () => ledger!.Replace(owner, replacement, target, narrowed));
     }
     private void RequireWritableServices(CompositionOwner owner)
     {

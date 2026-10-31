@@ -16,12 +16,16 @@ public sealed record KestrelEndpointEntry(string Name, IReadOnlyList<Composition
 public sealed class AspNetCompositionManifest
 {
     internal AspNetCompositionManifest(IReadOnlyList<string> stages, IReadOnlyList<EndpointEntry> endpoints,
-        IReadOnlyList<KestrelEndpointEntry> listeners)
-    { Stages = stages; Endpoints = endpoints; KestrelEndpoints = listeners; }
+        IReadOnlyList<KestrelEndpointEntry> listeners, bool complete)
+    { Stages = stages; Endpoints = endpoints; KestrelEndpoints = listeners; Complete = complete; }
     /// <summary>Gets the application-declared stage order.</summary>
     public IReadOnlyList<string> Stages { get; }
     /// <summary>Gets endpoints inspected after mapping.</summary>
     public IReadOnlyList<EndpointEntry> Endpoints { get; }
     /// <summary>Gets named requirements and tracked callback ownership.</summary>
     public IReadOnlyList<KestrelEndpointEntry> KestrelEndpoints { get; }
+    /// <summary>Gets whether every composed contributor's declarations ran.</summary>
+    /// <remarks>False when Compose failed before then, for example with TRP007 or a throwing callback: later contributors' stages
+    /// and listener requirements are missing. Check it before deriving listeners from a failed composition.</remarks>
+    public bool Complete { get; }
 }

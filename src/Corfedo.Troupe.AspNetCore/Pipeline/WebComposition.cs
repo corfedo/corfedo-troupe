@@ -44,6 +44,6 @@ internal sealed class WebComposition : ICompositionIntegration
         foreach (var diagnostic in EndpointRules.Evaluate(endpoints)) yield return diagnostic;
     }
     public object Snapshot() => new AspNetCompositionManifest(Array.AsReadOnly((string[])stages.Clone()),
-        Array.AsReadOnly(endpoints.ToArray()), Listeners.Snapshot());
+        Array.AsReadOnly(endpoints.ToArray()), Listeners.Snapshot(), session.ActionsExecuted);
     public void ReleaseCallbacks() { middleware.Clear(); mappings.Clear(); }
 }

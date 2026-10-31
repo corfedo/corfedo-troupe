@@ -103,6 +103,33 @@ public sealed class TestCompositionTests
         Assert.Contains(Assert.Throws<CompositionException>(() =>
             Builder().ComposeForTest<ProfileDefinition>(root => root.Requires<Ingress>(), withinProfile: "unknown")).Diagnostics, d => d.Code == "TRP013");
     }
+    [Theory]
+    [InlineData("unknown", "ComposeForTest: profile 'unknown' is not declared by")]
+    [InlineData(" ", "ComposeForTest: profile ' ' is not declared by")]
+    public void WithinProfileRejectsUndeclaredProfilesForTheRoot(string profile, string message)
+    {
+        var error = Assert.Throws<CompositionException>(() =>
+            Builder().ComposeForTest<ProfileDefinition>(root => root.Requires<Ingress>(), "slice", profile));
+        var diagnostic = Assert.Single(error.Diagnostics);
+        Assert.Equal("TRP013", diagnostic.Code); Assert.Equal([Root], diagnostic.Owners);
+        Assert.StartsWith(message, diagnostic.Message); Assert.Contains(typeof(ProfileDefinition).FullName!, diagnostic.Message);
+    }
+    [Fact]
+    public void WithinProfileRequiresADefinitionWithProfiles()
+    {
+        var error = Assert.Throws<CompositionException>(() => Builder().ComposeForTest<Definition>(_ => { }, "slice", "edge"));
+        var diagnostic = Assert.Single(error.Diagnostics);
+        Assert.Equal("TRP013", diagnostic.Code); Assert.Equal([Root], diagnostic.Owners);
+        Assert.Equal($"ComposeForTest: {typeof(Definition).FullName} declares no profiles, so withinProfile cannot be used.", diagnostic.Message);
+    }
+    [Fact]
+    public void RootOptionsAreValidatedAndOwnedByTheRoot()
+    {
+        var error = Assert.Throws<CompositionException>(() => Builder().ComposeForTest<Definition>(root => root.Options<Probe>("Probe"), "slice"));
+        var diagnostic = Assert.Single(error.Diagnostics);
+        Assert.Equal("TRP005", diagnostic.Code); Assert.Equal([Root], diagnostic.Owners);
+        Assert.Equal(Root, Assert.Single(error.Manifest!.Configuration).Owner);
+    }
     [Fact]
     public void ABuilderComposesOnce()
     {

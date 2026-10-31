@@ -202,6 +202,7 @@ public sealed class WebTests
         Assert.Null(missing.AspNetComposition());
         Assert.Contains("TRP103", Assert.Throws<CompositionException>(() => missing.Compose<Definition>()).Message);
         var failed = missing.AspNetComposition()!;
+        Assert.True(failed.Complete);
         Assert.Equal(["public"], failed.KestrelEndpoints.Select(e => e.Name));
         Assert.Equal(typeof(Ingress), Assert.Single(Assert.Single(failed.KestrelEndpoints).Owners).Type);
         var composed = Builder("a"); composed.Compose<Definition>();
@@ -210,6 +211,27 @@ public sealed class WebTests
         generic.Configuration["Roles"] = "plain"; generic.Compose<PlainDefinition>();
         Assert.Null(generic.AspNetComposition());
     }
+    [Fact]
+    public void BuilderSnapshotOfACompositionThatFailedBeforeItsActionsIsIncomplete()
+    {
+        A.Declare = r => r.Options<Probe>("Probe"); B.Declare = r => r.Options<Probe>("Probe");
+        var declarations = Builder();
+        Assert.Contains("TRP007", Assert.Throws<CompositionException>(() => declarations.Compose<Definition>()).Message);
+        var incomplete = declarations.AspNetComposition()!;
+        Assert.False(incomplete.Complete); Assert.Empty(incomplete.KestrelEndpoints);
+        A.Declare = r => r.Services(_ => throw new InvalidOperationException("partway")); B.Declare = _ => { };
+        var partway = Builder();
+        Assert.Contains("TRP017", Assert.Throws<CompositionException>(() => partway.Compose<Definition>()).Message);
+        Assert.False(partway.AspNetComposition()!.Complete);
+    }
+    [Fact]
+    public void BuilderSnapshotIsNullAfterAGraphFailure()
+    {
+        var builder = Builder("unknown");
+        Assert.Contains("TRP012", Assert.Throws<CompositionException>(() => builder.Compose<Definition>()).Message);
+        Assert.Null(builder.AspNetComposition());
+    }
+    public sealed class Probe;
     public sealed class PlainDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<Plain>(); }
     [Role("plain")] public sealed class Plain : IRole { public void Compose(IRoleBuilder r) { } }

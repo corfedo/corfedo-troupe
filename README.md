@@ -134,7 +134,8 @@ endpoint owner groups. Startup and profile verification reject recorded pipeline
 Endpoint inspection captures the inventory at UseComposition: map application endpoints before that call,
 or declare them through Troupe. `composition.AspNetCore()` exposes endpoint metadata and listener requirements. Before Build,
 `builder.AspNetComposition()` returns the stages and listener requirements from the builder, also after a failed
-Compose.
+Compose. Its `Complete` is false when Compose failed before every contributor's declarations ran; check it before
+deriving listeners.
 
 `KestrelEndpoint(name)` requires `Kestrel:Endpoints:<name>`. Missing and unrequested configured names
 are errors. `KestrelEndpoint(name, callback)` also makes the contributor the endpoint's callback owner; the
@@ -189,7 +190,8 @@ owned by `test:<name>` under the ordinary ownership check: removing another owne
 TRP003. `builder.ReplaceForTest<TService>(name, descriptor, key, owner)` replaces the one active registration
 in the type and key slot in place, so the manifest links the original to the replacement through `RemovedBy`
 and `ReplacedBy`. A missing target, or several registrations that the role or component type `owner` does not
-narrow to one, fails with TRP019, so a stale replacement cannot become a silent addition. The verifier's
+narrow to one, fails with TRP019, so a stale replacement cannot become a silent addition. The overload taking a
+`CompositionOwner` also selects an application-owned or test-owned target. The verifier's
 overrides are also owned by `test:<profile>`; they may remove any owner's registrations. `TestServices(name)` and
 `ComposeForTest(name)` with the same name share the owner `test:<name>`. After Build the services are read-only, and
 both overrides fail with TRP016.

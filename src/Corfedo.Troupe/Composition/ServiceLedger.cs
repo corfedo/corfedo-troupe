@@ -98,13 +98,13 @@ internal sealed class ServiceLedger(IServiceCollection collection)
         finally { facade.Active = false; }
     }
     // Replaces the single active occurrence in the replacement's type and key slot at its index, regardless of its owner.
-    internal void Replace(CompositionOwner owner, ServiceDescriptor replacement, Type? ownerType) => Configure(owner, services =>
+    // The target filter narrows candidates by owner; narrowed describes it in diagnostics.
+    internal void Replace(CompositionOwner owner, ServiceDescriptor replacement, Func<CompositionOwner, bool>? target, string narrowed) => Configure(owner, services =>
     {
         var slot = $"{replacement.ServiceType}{(replacement.ServiceKey is null ? "" : $" (key {replacement.ServiceKey})")}";
         var candidates = live.Select((occurrence, index) => (Occurrence: occurrence, Index: index))
             .Where(c => c.Occurrence.Descriptor.ServiceType == replacement.ServiceType && Equals(c.Occurrence.Descriptor.ServiceKey, replacement.ServiceKey))
-            .Where(c => ownerType is null || c.Occurrence.Owner.Type == ownerType).ToArray();
-        var narrowed = ownerType is null ? "" : $" owned by {ownerType.FullName}";
+            .Where(c => target is null || target(c.Occurrence.Owner)).ToArray();
         if (candidates.Length == 0)
             throw Errors.Fail(DiagnosticCodes.TestReplacementTarget, $"{owner.Name}: service {slot} has no active registration{narrowed} to replace.", owner);
         if (candidates.Length > 1)

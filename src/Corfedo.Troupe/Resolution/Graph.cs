@@ -79,14 +79,18 @@ internal static class Graph
     // Fails when the root requires a component that the named declared profile does not compose.
     internal static void RequireWithinProfile(DefinitionBuilder definition, string profileName, ContributorBuilder root)
     {
-        var (profile, roles) = Select(definition, profileName, null);
-        var closure = ResolveRoles(definition, roles);
+        var definitionName = definition.DefinitionType?.FullName ?? "the test definition";
+        if (definition.Profiles.Count == 0)
+            throw Errors.Fail("TRP013", $"ComposeForTest: {definitionName} declares no profiles, so withinProfile cannot be used.", root.Owner);
+        var profile = definition.Profiles.FirstOrDefault(p => p.Name == profileName)
+            ?? throw Errors.Fail("TRP013", $"ComposeForTest: profile '{profileName}' is not declared by {definitionName}. Declared profiles: {string.Join(", ", definition.Profiles.Select(p => p.Name))}.", root.Owner);
+        var closure = ResolveRoles(definition, profile.Roles);
         try
         {
             var composed = closure.Select(n => n.Owner.Type).ToHashSet();
             var outside = root.Requirements.Keys.Where(t => !composed.Contains(t)).Select(t => t.FullName ?? t.Name).Order(StringComparer.Ordinal).ToArray();
             if (outside.Length > 0)
-                throw Errors.Fail(DiagnosticCodes.OutsideProfile, $"{root.Owner.Name}: profile {profile!.Name} does not compose {string.Join(", ", outside)}.", root.Owner);
+                throw Errors.Fail(DiagnosticCodes.OutsideProfile, $"{root.Owner.Name}: profile {profile.Name} does not compose {string.Join(", ", outside)}.", root.Owner);
         }
         finally { foreach (var node in closure) node.Release(); }
     }
