@@ -14,7 +14,20 @@ if (args is ["codegen", ..])
     }
 }
 
-var builder = MessagingApplication.CreateBuilder(args);
+if (args is ["durable", "resources", "setup", .. var provisioningArgs])
+{
+    var host = MessagingApplication.CreateDurableProvisioningBuilder(provisioningArgs).Build();
+    try { return await host.RunJasperFxCommands(["resources", "setup"]); }
+    finally
+    {
+        if (host is IAsyncDisposable asyncDisposable) await asyncDisposable.DisposeAsync();
+        else host.Dispose();
+    }
+}
+
+var builder = args is ["durable", .. var servingArgs]
+    ? MessagingApplication.CreateDurableBuilder(servingArgs)
+    : MessagingApplication.CreateBuilder(args);
 builder.FinalizeComposition();
 await using var application = builder.Build();
 application.UseComposition();

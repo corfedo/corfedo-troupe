@@ -11,10 +11,13 @@
     <ProjectReference Include="../../examples/Worker/Worker.csproj" />
     <ProjectReference Include="../../examples/Messaging/Messaging.csproj" />
     <ProjectReference Include="../../examples/Web/Web.csproj" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3.mtp-off" />
     <PackageReference Include="xunit.v3.assert" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <AssemblyMetadata Include="MessagingExecutable" Value="$(MSBuildProjectDirectory)/../../examples/Messaging/bin/$(Configuration)/$(TargetFramework)/Messaging.dll" />
     <AssemblyMetadata Include="ExamplesDirectory" Value="$(MSBuildProjectDirectory)/../../examples" />
   </ItemGroup>
 </Project>

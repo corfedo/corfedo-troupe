@@ -9,6 +9,9 @@
     <PackageVersion Include="xunit.v3.mtp-off" Version="4.0.1" />
     <PackageVersion Include="xunit.v3.assert" Version="4.0.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="6.41.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="WolverineFx" Version="6.41.0" />
     <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.41.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />

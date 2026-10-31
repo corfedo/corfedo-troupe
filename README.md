@@ -24,8 +24,9 @@ The [worker](examples/Worker/Program.cs) integrates Microsoft.Extensions.Hosting
 and BackgroundService. The [web example](examples/Web/Program.cs) integrates ASP.NET Core routing,
 Minimal APIs, health checks and named Kestrel configuration at `http://127.0.0.1:5080`. The
 [Wolverine messaging example](examples/Messaging/README.md) demonstrates real builder contributions,
-selectable consumers, request/reply, local queues and static handler generation. Its default address
-is `http://127.0.0.1:5081`.
+selectable consumers, request/reply, local queues, PostgreSQL transport and static handler generation.
+The durable mode includes separate publisher/consumer processes and explicit schema provisioning.
+Its default address is `http://127.0.0.1:5081`.
 
 `Corfedo.Troupe.Examples.Tests` verifies the examples' actual definitions and starts real hosts for
 heartbeat, HTTP and message-handling tests. Wolverine dependencies are confined to the messaging
