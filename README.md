@@ -18,8 +18,7 @@ exposes facts about the result, such as `IComposition.Includes<TComponent>()`.
 
 Troupe does not implement operations. Calls between roles, routing to another process, transports such as
 gRPC, serialization, caller identity and addresses belong to the application, which builds them on these
-facts. Troupe knows only what is composed in this process; "remote" means "not composed here". See
-[local and remote calls](docs/designs/local-remote-boundary.md) for the boundary and how the platform uses it.
+facts. Troupe knows only what is composed in this process; "remote" means "not composed here".
 
 Reference the relevant project in `src/`; packages are not published. Use SDK 10.0.300:
 
@@ -152,4 +151,3 @@ Named options, live topology changes, packaged Corfedo/Wolverine adapters and Na
 alpha. See [LICENSE](LICENSE) and [NOTICE](NOTICE)
 for Apache-2.0 terms and the reservation of Corfedo names, logos and brand assets.
 
-The internal lifecycle decisions and verification scope are in [the design note](docs/designs/composition-lifecycle.md).

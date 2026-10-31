@@ -4,8 +4,8 @@ One executable serves an API workload and two operation owners, Gateway and AI, 
 calls both owners through one keyed `IGateway`: in process when the owner is composed here, otherwise over
 HTTP/2 with mutual TLS to the owner's internal listener. Troupe supplies only composition facts; the
 catalogue, routing, transport, serialization and caller identity are application code in this example.
-It follows the structure of the [local and remote calls](../../docs/designs/local-remote-boundary.md)
-design, with HTTP/2 and JSON in place of the platform's gRPC and MessagePack.
+It follows the structure of Corfedo Platform's local and remote calls, with HTTP/2 and JSON in place of
+the platform's gRPC and MessagePack.
 
 | Profile | `--roles` | Calls |
 | --- | --- | --- |
