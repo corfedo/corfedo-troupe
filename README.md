@@ -29,6 +29,7 @@ dotnet test Corfedo.Troupe.slnx
 dotnet run --project examples/Worker -- --roles worker
 dotnet run --project examples/Web -- --roles web,health
 dotnet run --project examples/Messaging -- --roles orders,notifications
+dotnet run --project examples/Operations -- certificates
 ```
 
 The [worker](examples/Worker/Program.cs) integrates Microsoft.Extensions.Hosting, validated options
@@ -37,7 +38,10 @@ Minimal APIs, health checks and named Kestrel configuration at `http://127.0.0.1
 [Wolverine messaging example](examples/Messaging/README.md) demonstrates real builder contributions,
 selectable consumers, request/reply, local queues, PostgreSQL transport and static handler generation.
 The durable mode includes separate publisher/consumer processes and explicit schema provisioning.
-Its default address is `http://127.0.0.1:5081`.
+Its default address is `http://127.0.0.1:5081`. The [operations example](examples/Operations/README.md)
+follows the platform's local/remote design: owner hosts, an internal mutual-TLS listener and callers that
+reach each owner in process or remotely, built on `Includes`, `ReadsConfigurationUnless` and
+contributor-owned Kestrel endpoints. Its transport is application code.
 
 `Corfedo.Troupe.Examples.Tests` verifies the examples' actual definitions and starts real hosts for
 heartbeat, HTTP and message-handling tests. Wolverine dependencies are confined to the messaging

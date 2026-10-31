@@ -11,6 +11,7 @@
     <ProjectReference Include="../../examples/Worker/Worker.csproj" />
     <ProjectReference Include="../../examples/Messaging/Messaging.csproj" />
     <ProjectReference Include="../../examples/Web/Web.csproj" />
+    <ProjectReference Include="../../examples/Operations/Operations.csproj" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

@@ -557,6 +557,12 @@
           "WolverineFx.RuntimeCompilation": "[6.41.0, )"
         }
       },
+      "operations": {
+        "type": "Project",
+        "dependencies": {
+          "Corfedo.Troupe.AspNetCore": "[0.1.0-alpha.1, )"
+        }
+      },
       "web": {
         "type": "Project",
         "dependencies": {

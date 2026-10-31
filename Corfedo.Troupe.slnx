@@ -16,6 +16,7 @@
   <Folder Name="/examples/">
     <Project Path="examples/Messaging/Messaging.csproj" />
     <Project Path="examples/Worker/Worker.csproj" />
+    <Project Path="examples/Operations/Operations.csproj" />
     <Project Path="examples/Web/Web.csproj" />
   </Folder>
 </Solution>
