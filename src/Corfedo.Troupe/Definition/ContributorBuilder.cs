@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Corfedo.Troupe;
 
@@ -15,6 +16,27 @@ internal sealed class ContributorBuilder(CompositionOwner owner) : IRoleBuilder,
     {
         ArgumentNullException.ThrowIfNull(configure);
         Actions.Add((session, owner) => session.Track(owner, configure));
+    }
+    public void Options<T>(string section, bool required = true) where T : class, new()
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(section);
+        Actions.Add((s, o) => OwnedOptions.Register<T>(s, o, section, required));
+    }
+    public void Options<T, TValidator>(string section, bool required = true)
+        where T : class, new() where TValidator : class, IValidateOptions<T>
+    {
+        Options<T>(section, required);
+        Services(s => s.AddSingleton<IValidateOptions<T>, TValidator>());
+    }
+    public void ReadsConfiguration(string section, bool required = true)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(section);
+        Actions.Add((s, o) => s.Configuration.Add(new(o, section, required, null)));
+    }
+    public void Check(Func<IServiceProvider, CancellationToken, Task> check)
+    {
+        ArgumentNullException.ThrowIfNull(check);
+        Actions.Add((s, o) => s.Checks.Add(new(o, check)));
     }
     public void Contribute<T>(Action<T> configure)
     {

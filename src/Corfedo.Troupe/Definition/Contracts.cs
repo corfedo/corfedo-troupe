@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Corfedo.Troupe;
 
@@ -49,6 +50,15 @@ public interface IContributorBuilder
     IContributorBuilder Requires<T>() where T : IComponent, new();
     /// <summary>Records a synchronous service callback. Do not retain the supplied collection.</summary>
     void Services(Action<IServiceCollection> configure);
+    /// <summary>Binds one owned section to default options, with required presence validation and ValidateOnStart.</summary>
+    void Options<T>(string section, bool required = true) where T : class, new();
+    /// <summary>Binds owned options and explicitly registers a DI-constructed validator.</summary>
+    void Options<T, TValidator>(string section, bool required = true)
+        where T : class, new() where TValidator : class, IValidateOptions<T>;
+    /// <summary>Records a manual configuration read and enforces required section presence.</summary>
+    void ReadsConfiguration(string section, bool required = true);
+    /// <summary>Records a sequential check in Troupe's StartingAsync, after hosted construction and startup options validation.</summary>
+    void Check(Func<IServiceProvider, CancellationToken, Task> check);
     /// <summary>Records a callback for an application-owned third-party builder.</summary>
     void Contribute<T>(Action<T> configure);
     /// <summary>Suppresses the advisory duplicate-service diagnostic for this service type.</summary>

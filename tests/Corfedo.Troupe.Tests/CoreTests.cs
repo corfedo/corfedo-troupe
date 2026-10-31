@@ -159,7 +159,7 @@ public sealed class CoreTests
         Assert.Equal(0, calls);
         A.Declare = r => r.Services(s => s.AddHostedService<Worker>());
         B.Declare = r => r.Services(s => s.AddHostedService<Worker>());
-        Assert.Single(Builder().Compose<Definition>().Services, s => s.ServiceType == typeof(IHostedService));
+        Assert.Single(Builder().Compose<Definition>().Services, s => s.ServiceType == typeof(IHostedService) && s.ImplementationType == typeof(Worker));
     }
     [Fact]
     public void TypedHttpClientRepeatsRemainAdvisory()

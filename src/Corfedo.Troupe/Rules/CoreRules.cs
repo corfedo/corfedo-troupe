@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Corfedo.Troupe;
@@ -7,6 +8,10 @@ internal static class CoreRules
 {
     internal static IEnumerable<CompositionDiagnostic> Evaluate(CompositionSession session, CompositionManifest manifest)
     {
+        foreach (var read in manifest.Configuration.Where(r => r.Required))
+            if (!session.Builder.Configuration.GetSection(read.Section).Exists())
+                yield return Diagnostic("TRP005", DiagnosticSeverity.Error,
+                    $"{read.Owner.Name}: required section {read.Section} is missing.", [read.Owner]);
         var active = manifest.Services.Where(s => s.Active).ToArray();
         foreach (var slot in active.GroupBy(s => (s.ServiceType, s.Key)))
         {

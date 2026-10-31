@@ -20,7 +20,9 @@ public static class CompositionExtensions
         {
             foreach (var node in nodes)
                 foreach (var action in node.Actions) action(session, node.Owner);
+            builder.Services.AddSingleton(session);
             builder.Services.AddSingleton<IComposition>(session);
+            builder.Services.AddSingleton<IHostedService, CompositionLifecycle>();
             return session.Validate();
         }
         catch (CompositionException exception) when (exception.Manifest is null)

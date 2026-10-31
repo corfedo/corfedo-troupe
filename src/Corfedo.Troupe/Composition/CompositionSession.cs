@@ -11,6 +11,8 @@ internal sealed class CompositionSession(IHostApplicationBuilder builder, Defini
     internal readonly ContributorBuilder[] Nodes = nodes;
     internal readonly ServiceLedger Ledger = new(builder.Services);
     internal readonly List<PendingContribution> Contributions = [];
+    internal readonly List<StartupCheck> Checks = [];
+    internal readonly Dictionary<Type, Action<IServiceProvider>> ResolveOptions = [];
     internal readonly HashSet<Type> Applied = [];
     internal readonly HashSet<Type> Multiple = [];
     internal readonly HashSet<(Type Type, object? Key)> Exclusive = [];
