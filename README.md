@@ -10,6 +10,17 @@ composes dependencies once, and records who contributed each registration.
 | `Corfedo.Troupe.AspNetCore` | Application-declared middleware stages, endpoint owner groups and named Kestrel requirements |
 | `Corfedo.Troupe.Testing` | Real generic/web profile verification, explicit test overrides and host disposal; no test runner dependency |
 
+## Scope
+
+Troupe composes hosts. It decides what this process contains and checks that composition: selected
+roles and components, their services, options, configuration requirements, pipeline and listeners. It
+exposes facts about the result, such as `IComposition.Includes<TComponent>()`.
+
+Troupe does not implement operations. Calls between roles, routing to another process, transports such as
+gRPC, serialization, caller identity and addresses belong to the application, which builds them on these
+facts. Troupe knows only what is composed in this process; "remote" means "not composed here". See
+[local and remote calls](docs/designs/local-remote-boundary.md) for the boundary and how the platform uses it.
+
 Reference the relevant project in `src/`; packages are not published. Use SDK 10.0.300:
 
 ```sh
@@ -134,7 +145,7 @@ names are errors. Route overlap diagnostics are bounded candidates considering o
 hosts and constraints; custom policies need HTTP tests. ASP0022/ASP0023 remain enabled.
 
 Named options, live topology changes, packaged Corfedo/Wolverine adapters and Native AOT guarantees are outside this
-alpha. gRPC/MCP ownership has no executable package tests here. See [LICENSE](LICENSE) and [NOTICE](NOTICE)
+alpha. See [LICENSE](LICENSE) and [NOTICE](NOTICE)
 for Apache-2.0 terms and the reservation of Corfedo names, logos and brand assets.
 
 The internal lifecycle decisions and verification scope are in [the design note](docs/designs/composition-lifecycle.md).
