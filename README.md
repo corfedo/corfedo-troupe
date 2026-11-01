@@ -194,7 +194,7 @@ whether an owner runs in this process. The [Operations example](examples/Operati
 
 ## Status and license
 
-This is version 0.1.1; the API may change before 1.0. Named options, live topology changes, Native AOT and
+This is version 0.2.0; the API may change before 1.0. Named options, live topology changes, Native AOT and
 third-party DI containers are not supported yet. Contributions are welcome through issues and pull requests.
 
 Troupe is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for the reservation of Corfedo names, logos and
