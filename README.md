@@ -175,6 +175,9 @@ step throws a `CompositionException` before the host starts.
 - **[Testing](docs/guides/testing.md):** verifying the composition and every profile, composing a slice, replacing
   services.
 - **[Diagnostics](docs/guides/diagnostics.md):** every `TRP` code and what to change.
+- **[Migrating an existing application](docs/guides/migrating.md):** moving `Program.cs` and `AddX()` extensions into
+  components one area at a time, and checking whether parts can run separately. The
+  [`troupe-migration`](skills/troupe-migration/SKILL.md) skill takes a coding agent through the same steps.
 
 Troupe composes hosts; it does not call between them. Routing a call to another process, its transport,
 serialization and caller identity belong to the application, which uses `IComposition.Includes<T>()` to decide
