@@ -72,7 +72,7 @@ public static class AspNetCompositionExtensions
         if (composition is not RuntimeComposition runtime) throw new ArgumentException("The composition was not created by Troupe.", nameof(composition));
         return runtime.IntegrationSnapshot<AspNetCompositionManifest>() ?? new(Array.Empty<string>(), Array.Empty<EndpointEntry>(), Array.Empty<KestrelEndpointEntry>(), complete: true);
     }
-    /// <summary>Gets the ASP.NET snapshot of the builder's composition, including after a failed Compose.</summary>
+    /// <summary>Gets the ASP.NET snapshot of the builder's composition, including after a failed AddTroupe.</summary>
     /// <remarks>Reports stages and named Kestrel requirements before Build, for example to derive listeners when configuration is absent;
     /// check <see cref="AspNetCompositionManifest.Complete"/> first. Null when definition or graph resolution failed, so no composition
     /// session exists, or when the composition has no web declarations.</remarks>

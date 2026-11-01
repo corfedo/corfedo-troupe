@@ -1,39 +1,49 @@
 # Corfedo Troupe
 
-**A host composition framework for .NET.** In a large application, `Program.cs` grows into hundreds of
-registrations nobody owns, and a missing configuration section or a conflicting registration shows up only when a
-request hits it. Troupe builds the host from components that declare what they register, what they require, which
-configuration they read and what they contribute to other builders. It records the owner of every registration, so a
-misconfigured host fails at startup with a diagnostic code that names the owners involved. Roles and profiles select
-the components of each process, so one executable runs combined or split across processes from the same
-declarations.
+**Compose a .NET host from components that declare what they need, and catch a misconfigured host before it
+serves a request.** As an application grows, one `Program.cs` wires every project into the host, projects reference
+each other only because that code needs them, and each new component is wired the way the nearest example was.
+Troupe gives every part of the host the same shape: a component declares the services it registers, the
+configuration it reads and the components it requires. Troupe records the owner of every registration and stops
+startup with a diagnostic that names the owners. When the application later runs as several processes, roles select
+components from the same declarations.
 
 ```sh
 dotnet add package Corfedo.Troupe
 dotnet add package Corfedo.Troupe.AspNetCore   # middleware stages, endpoints and Kestrel endpoints
-dotnet add package Corfedo.Troupe.Testing      # profile verification and test overrides
+dotnet add package Corfedo.Troupe.Testing      # composition verification and test overrides
 ```
 
-A role requires a component, and the component owns its configuration section:
+The definition requires a component, and the component owns its configuration section:
 
 ```csharp
-[Role("worker")]
-public sealed class WorkerRole : IRole
+public sealed class WorkerComposition : ICompositionDefinition
 {
-    public void Compose(IRoleBuilder role)
-    {
-        role.Requires<WorkerSettings>();
-        role.Services(services => services.AddHostedService<Heartbeat>());
-    }
+    public void Define(ICompositionDefinitionBuilder definition) => definition.Requires<HeartbeatComponent>();
 }
 
-public sealed class WorkerSettings : IComponent
+public sealed class HeartbeatComponent : IComponent
 {
-    public void Compose(IComponentBuilder component) => component.Options<HeartbeatOptions, HeartbeatValidator>("Worker");
+    public void Compose(IComponentBuilder component)
+    {
+        component.Options<HeartbeatOptions>("Worker");
+        component.Services(services => services.AddHostedService<HeartbeatService>());
+    }
 }
 ```
 
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.AddTroupe<WorkerComposition>();
+using var host = builder.Build();
+await host.RunAsync();
+```
+
+Without a `Worker` section, `AddTroupe` throws a `CompositionException` with TRP005, naming `HeartbeatComponent` and the
+section, and the host never starts.
+
 The packages depend on each other's exact version, so update them together. See the
-[full documentation](https://github.com/corfedo/corfedo-troupe#readme) for the quick start, concepts and examples.
+[documentation](https://github.com/corfedo/corfedo-troupe#readme) for a first application, splitting into processes,
+guides and examples.
 
 Troupe is licensed under Apache-2.0. Corfedo names, logos and brand assets are reserved; see the NOTICE file.

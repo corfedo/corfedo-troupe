@@ -1,9 +1,7 @@
-using Corfedo.Troupe;
 using Corfedo.Troupe.AspNetCore;
 using Corfedo.Troupe.Examples.Web;
 
-var builder = WebExample.CreateBuilder(args);
-builder.FinalizeComposition();
+var builder = ShopApplication.CreateBuilder(args);
 await using var app = builder.Build();
 app.UseComposition();
 await app.RunAsync();

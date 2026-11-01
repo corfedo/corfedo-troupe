@@ -119,6 +119,19 @@
       },
       "corfedo.troupe": {
         "type": "Project"
+      },
+      "corfedo.troupe.aspnetcore": {
+        "type": "Project",
+        "dependencies": {
+          "Corfedo.Troupe": "[0.1.1, )"
+        }
+      },
+      "corfedo.troupe.testing": {
+        "type": "Project",
+        "dependencies": {
+          "Corfedo.Troupe": "[0.1.1, )",
+          "Corfedo.Troupe.AspNetCore": "[0.1.1, )"
+        }
       }
     }
   }

@@ -6,10 +6,10 @@ public sealed class OperationsComposition : ICompositionDefinition
 {
     public void Define(ICompositionDefinitionBuilder definition)
     {
-        definition.Role<ApiRole>().Role<GatewayRole>().Role<AiRole>()
-            .Profile("combined", "ai", "api", "gateway")
-            .Profile("api", "api").Profile("gateway", "gateway").Profile("ai", "ai")
-            .Profile("api-gateway", "api", "gateway")
+        definition
+            .Profile("combined", p => p.Role<AiRole>().Role<ApiRole>().Role<GatewayRole>())
+            .Profile("api", p => p.Role<ApiRole>()).Profile("gateway", p => p.Role<GatewayRole>()).Profile("ai", p => p.Role<AiRole>())
+            .Profile("api-gateway", p => p.Role<ApiRole>().Role<GatewayRole>())
             .Rule(new CallsRule());
         definition.Stages("routing", "internal");
     }

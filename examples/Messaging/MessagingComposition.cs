@@ -7,9 +7,8 @@ public sealed class MessagingComposition : ICompositionDefinition
 {
     public void Define(ICompositionDefinitionBuilder definition)
     {
-        definition.Role<OrdersRole>().Role<NotificationsRole>()
-            .Profile("orders", "orders").Profile("notifications", "notifications")
-            .Profile("combined", "orders", "notifications");
+        definition.Profile("orders", p => p.Role<OrdersRole>()).Profile("notifications", p => p.Role<NotificationsRole>())
+            .Profile("combined", p => p.Role<OrdersRole>().Role<NotificationsRole>());
         definition.Stages("routing");
     }
 }

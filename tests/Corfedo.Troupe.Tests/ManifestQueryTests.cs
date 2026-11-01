@@ -19,7 +19,7 @@ public sealed class ManifestQueryTests
     [Fact]
     public void ComposesAndPathToFollowRequirementsFromARole()
     {
-        var manifest = Builder("reader,writer").Compose<Definition>();
+        var manifest = Builder("reader,writer").AddTroupe<Definition>();
         Assert.True(manifest.Composes<Cache>()); Assert.False(manifest.Composes<Unused>());
         Assert.Equal([Reader, Component<Store>()], manifest.PathTo<Store>());
         Assert.Equal([Writer, Component<Journal>()], manifest.PathTo<Journal>());
@@ -29,14 +29,15 @@ public sealed class ManifestQueryTests
     public void PathToResolvesEqualLengthChainsOrdinally()
     {
         // Writer reaches Store through Cache and through Journal; Cache sorts first.
-        var manifest = Builder("writer").Compose<Definition>();
+        var manifest = Builder("writer").AddTroupe<Definition>();
         Assert.Equal([Writer, Component<Cache>(), Component<Store>()], manifest.PathTo<Store>());
     }
     [Fact]
     public void ServiceConfigurationAndContributionQueries()
     {
-        var builder = Builder("reader,writer"); builder.Compose<Definition>(); builder.ApplyContributions(new List<string>());
-        var manifest = builder.FinalizeComposition();
+        var builder = Builder("reader,writer"); builder.AddTroupe<Definition>(); builder.ApplyContributions(new List<string>());
+        using var host = builder.Build();
+        var manifest = host.Services.GetRequiredService<IComposition>().Manifest;
         Assert.Equal([Reader, Writer], manifest.Active(typeof(Value)).Select(s => s.Owner));
         Assert.Equal(Reader, Assert.Single(manifest.Active(typeof(Value), "k")).Owner);
         Assert.Empty(manifest.Active(typeof(Value), "other"));

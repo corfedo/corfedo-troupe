@@ -8,6 +8,8 @@ internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
     internal readonly Dictionary<string, RoleDefinition> Roles = new(StringComparer.Ordinal);
     internal readonly List<ProfileIdentity> Profiles = [];
     internal readonly List<ICompositionRule> Rules = [];
+    // Each entry adds one definition-level requirement to the definition's root contributor.
+    internal readonly List<Action<ContributorBuilder>> Requirements = [];
     private bool closed;
     internal Func<CompositionSession, ICompositionIntegration>? IntegrationFactory { get; private set; }
     internal void SetIntegration(Func<CompositionSession, ICompositionIntegration> factory)
@@ -19,26 +21,55 @@ internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
     private void EnsureOpen()
     { if (closed) throw Errors.Fail(DiagnosticCodes.ClosedDeclaration, "The composition definition is closed."); }
 
-    public ICompositionDefinitionBuilder Role<T>() where T : IRole, new()
+    public ICompositionDefinitionBuilder Requires<T>() where T : IComponent, new()
     {
         EnsureOpen();
-        var name = typeof(T).GetCustomAttribute<RoleAttribute>()?.Name;
-        if (string.IsNullOrWhiteSpace(name) || name.Contains(',') || name != name.Trim())
-            throw Errors.Fail("TRP010", $"Role {typeof(T).FullName} needs a nonempty, trimmed name without commas.");
-        if (Roles.ContainsKey(name) || Roles.Values.Any(r => r.Identity.Type == typeof(T)))
-            throw Errors.Fail("TRP010", $"Duplicate role identity {name} ({typeof(T).FullName}).");
-        Roles.Add(name, new(new(typeof(T), name), b => new T().Compose(b)));
+        Requirements.Add(root => root.Requires<T>());
         return this;
     }
 
-    public ICompositionDefinitionBuilder Profile(string name, params string[] roles)
+    public ICompositionDefinitionBuilder Role<T>() where T : IRole, new()
+    {
+        EnsureOpen();
+        Register<T>(reuse: false);
+        return this;
+    }
+
+    // A role type registers once under its attribute name; profiles naming it again reuse that registration.
+    private string Register<T>(bool reuse) where T : IRole, new()
+    {
+        var name = typeof(T).GetCustomAttribute<RoleAttribute>()?.Name;
+        if (string.IsNullOrWhiteSpace(name) || name.Contains(',') || name != name.Trim())
+            throw Errors.Fail("TRP010", $"Role {typeof(T).FullName} needs a nonempty, trimmed name without commas.");
+        if (reuse && Roles.TryGetValue(name, out var existing) && existing.Identity.Type == typeof(T)) return name;
+        if (Roles.ContainsKey(name) || Roles.Values.Any(r => r.Identity.Type == typeof(T)))
+            throw Errors.Fail("TRP010", $"Duplicate role identity {name} ({typeof(T).FullName}).");
+        Roles.Add(name, new(new(typeof(T), name), b => new T().Compose(b)));
+        return name;
+    }
+
+    public ICompositionDefinitionBuilder Profile(string name, Action<IProfileBuilder> roles)
     {
         EnsureOpen();
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(roles);
         if (Profiles.Any(p => p.Name == name)) throw Errors.Fail("TRP011", $"Duplicate profile name {name}.");
-        Profiles.Add(new(name, Array.AsReadOnly(roles.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray())));
+        var profile = new ProfileBuilder(this);
+        roles(profile);
+        if (profile.Names.Count == 0) throw Errors.Fail("TRP011", $"Profile {name} cannot be empty.");
+        Profiles.Add(new(name, Array.AsReadOnly(profile.Names.Order(StringComparer.Ordinal).ToArray())));
         return this;
+    }
+
+    private sealed class ProfileBuilder(DefinitionBuilder definition) : IProfileBuilder
+    {
+        internal readonly HashSet<string> Names = new(StringComparer.Ordinal);
+        public IProfileBuilder Role<T>() where T : IRole, new()
+        {
+            definition.EnsureOpen();
+            Names.Add(definition.Register<T>(reuse: true));
+            return this;
+        }
     }
 
     public ICompositionDefinitionBuilder Rule(ICompositionRule rule)
@@ -51,9 +82,6 @@ internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
         var definition = new DefinitionBuilder { DefinitionType = type };
         try { define(definition); }
         finally { definition.closed = true; }
-        foreach (var profile in definition.Profiles)
-            if (profile.Roles.Count == 0 || profile.Roles.Any(r => !definition.Roles.ContainsKey(r)))
-                throw Errors.Fail("TRP011", $"Profile {profile.Name} must contain known roles and cannot be empty.");
         return definition;
     }
 }

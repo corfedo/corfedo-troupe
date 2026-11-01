@@ -25,7 +25,7 @@ public sealed class AspNetCompositionManifest
     /// <summary>Gets named requirements and tracked callback ownership.</summary>
     public IReadOnlyList<KestrelEndpointEntry> KestrelEndpoints { get; }
     /// <summary>Gets whether every composed contributor's declarations ran.</summary>
-    /// <remarks>False when Compose failed before then, for example with TRP007 or a throwing callback: later contributors' stages
+    /// <remarks>False when AddTroupe failed before then, for example with TRP007 or a throwing callback: later contributors' stages
     /// and listener requirements are missing. Check it before deriving listeners from a failed composition.</remarks>
     public bool Complete { get; }
 }

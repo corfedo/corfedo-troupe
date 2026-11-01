@@ -2,10 +2,16 @@ namespace Corfedo.Troupe;
 
 internal static class Graph
 {
-    // Resolves the closure of the selected roles; the role definitions declare the roots.
-    internal static ContributorBuilder[] ResolveRoles(DefinitionBuilder definition, IEnumerable<string> roleNames) =>
-        Resolve(roleNames.Select(name => definition.Roles[name])
-            .Select(role => (new CompositionOwner(OwnerKind.Role, role.Identity.Name, role.Identity.Type), role.Declare)));
+    // Resolves the closure of the definition's own requirements and the selected roles; each of them is a root.
+    internal static ContributorBuilder[] ResolveRoles(DefinitionBuilder definition, IEnumerable<string> roleNames)
+    {
+        var roots = roleNames.Select(name => definition.Roles[name])
+            .Select(role => (new CompositionOwner(OwnerKind.Role, role.Identity.Name, role.Identity.Type), role.Declare));
+        if (definition.Requirements.Count == 0) return Resolve(roots);
+        var type = definition.DefinitionType;
+        var owner = new CompositionOwner(OwnerKind.Definition, type?.FullName ?? "definition", type);
+        return Resolve(roots.Prepend((owner, root => { foreach (var require in definition.Requirements) require(root); })));
+    }
 
     // Declares each root and its requirement closure, then orders dependencies before dependents with ordinal ready-node ties.
     // A root without a definition type (a test root) cannot be required, so it follows its whole closure.
@@ -54,7 +60,8 @@ internal static class Graph
         return ordered.ToArray();
     }
 
-    // Declared profiles are the only selection of a composition that declares them; others select roles.
+    // Declared profiles are the only selection of a composition that declares them; others select roles, and a definition
+    // without roles selects nothing.
     internal static (ProfileIdentity? Profile, string[] Roles) Select(DefinitionBuilder definition, string? profileSelection, string? roleSelection)
     {
         var profileName = string.IsNullOrWhiteSpace(profileSelection) ? null : profileSelection.Trim();
@@ -68,6 +75,13 @@ internal static class Graph
             var profile = definition.Profiles.FirstOrDefault(p => p.Name == profileName)
                 ?? throw Errors.Fail("TRP013", $"Unknown profile {profileName}. Declared profiles: {declared}.");
             return (profile, [.. profile.Roles]);
+        }
+        if (definition.Roles.Count == 0)
+        {
+            if (profileName is not null) throw Errors.Fail("TRP013", "The definition declares no profiles; remove the Profile configuration value.");
+            if (roleNames.Length > 0) throw Errors.Fail("TRP012", "The definition declares no roles; remove the Roles configuration value.");
+            if (definition.Requirements.Count == 0) throw Errors.Fail("TRP012", "The definition requires no components and declares no roles.");
+            return (null, []);
         }
         if (profileName is not null) throw Errors.Fail("TRP013", "Profile selection requires declared profiles; select roles using Roles configuration.");
         if (roleNames.Length == 0) throw Errors.Fail("TRP012", "Select at least one role using Roles configuration.");

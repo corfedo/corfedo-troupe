@@ -23,7 +23,7 @@ public sealed class KestrelTests
         var trust = new Trust(certificates.Client.Thumbprint);
         var callbacks = 0;
         A.Declare = r => { r.Services(s => s.AddSingleton(trust)); r.Endpoints(e => e.MapGet("/", () => "secure")); };
-        var builder = TlsBuilder(certificates); builder.Compose<Definition>();
+        var builder = TlsBuilder(certificates); builder.AddTroupe<Definition>();
         builder.ConfigureCompositionEndpoint("public", endpoint =>
         {
             callbacks++;
@@ -32,7 +32,6 @@ public sealed class KestrelTests
             endpoint.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
             endpoint.HttpsOptions.ClientCertificateValidation = (cert, _, _) => resolved.Admits(cert);
         });
-        builder.FinalizeComposition();
         await using var app = builder.Build(); app.UseComposition();
         Assert.Equal(0, callbacks);
         await app.StartAsync(TestContext.Current.CancellationToken);
@@ -50,21 +49,21 @@ public sealed class KestrelTests
         using var certificates = new Certificates();
         var first = 0; var second = 0;
         A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "unprotected"));
-        var builder = TlsBuilder(certificates); builder.Compose<Definition>();
+        var builder = TlsBuilder(certificates); builder.AddTroupe<Definition>();
         builder.ConfigureCompositionEndpoint("public", endpoint => { first++; endpoint.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate; });
         builder.WebHost.ConfigureKestrel(o => o.ConfigurationLoader!.Endpoint("public", _ => second++));
-        builder.FinalizeComposition(); await using (var app = builder.Build())
+        await using (var app = builder.Build())
         {
             app.UseComposition(); await app.StartAsync(TestContext.Current.CancellationToken);
             using var anonymous = certificates.HttpClient(app, withClient: false);
             Assert.Equal("unprotected", await anonymous.GetStringAsync("/", TestContext.Current.CancellationToken));
             Assert.Equal(0, first); Assert.Equal(1, second);
         }
-        var tracked = TlsBuilder(certificates); tracked.Compose<Definition>();
+        var tracked = TlsBuilder(certificates); tracked.AddTroupe<Definition>();
         tracked.ConfigureCompositionEndpoint("public", e => e.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate);
         var error = Assert.Throws<CompositionException>(() => tracked.ConfigureCompositionEndpoint("public", _ => { }));
         Assert.Contains("TRP104", error.Message);
-        Assert.Throws<CompositionException>(() => tracked.FinalizeComposition());
+        Assert.Throws<CompositionException>(() => tracked.Build());
     }
     [Fact]
     public async Task ContributorOwnedCallbackRunsWithDiOnlyWhenItsOwnerIsComposed()
@@ -84,8 +83,8 @@ public sealed class KestrelTests
             });
         };
         B.Declare = r => r.KestrelEndpoint("internal", _ => unselected++);
-        var builder = TlsBuilder(certificates); builder.Compose<Definition>();
-        builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
+        var builder = TlsBuilder(certificates); builder.AddTroupe<Definition>();
+        await using var app = builder.Build(); app.UseComposition();
         var endpoint = Assert.Single(app.Services.GetRequiredService<IComposition>().AspNetCore().KestrelEndpoints);
         Assert.Equal(("public", OwnerKind.Role, "a"), (endpoint.Name, endpoint.CallbackOwner!.Kind, endpoint.CallbackOwner.Name));
         await app.StartAsync(TestContext.Current.CancellationToken);
@@ -101,11 +100,11 @@ public sealed class KestrelTests
     {
         A.Declare = r => r.KestrelEndpoint("public", _ => { });
         B.Declare = r => r.KestrelEndpoint("public", _ => { });
-        var contributors = Assert.Throws<CompositionException>(() => Builder("a,b").Compose<Definition>());
+        var contributors = Assert.Throws<CompositionException>(() => Builder("a,b").AddTroupe<Definition>());
         var diagnostic = Assert.Single(contributors.Diagnostics);
         Assert.Equal(("TRP104", "b"), (diagnostic.Code, Assert.Single(diagnostic.Owners).Name));
         Assert.Contains("callback owner a", diagnostic.Message);
-        var application = Builder("a"); application.Compose<Definition>();
+        var application = Builder("a"); application.AddTroupe<Definition>();
         Assert.Contains("TRP104", Assert.Throws<CompositionException>(() => application.ConfigureCompositionEndpoint("public", _ => { })).Message);
     }
     [Fact]
@@ -115,17 +114,17 @@ public sealed class KestrelTests
         A.Declare = r => { r.KestrelEndpoint("public", _ => callbacks++); r.Endpoints(e => e.MapGet("/", () => "ok")); };
         var builder = Builder("a");
         builder.WebHost.ConfigureKestrel(o => o.Configure(builder.Configuration.GetSection("Kestrel"), reloadOnChange: true));
-        builder.Compose<Definition>();
-        builder.FinalizeComposition(); await using (var app = builder.Build())
+        builder.AddTroupe<Definition>();
+        await using (var app = builder.Build())
         {
             app.UseComposition(); await app.StartAsync(TestContext.Current.CancellationToken);
             using var client = Client(app);
             Assert.Equal("ok", await client.GetStringAsync("/", TestContext.Current.CancellationToken));
             Assert.Equal(1, callbacks);
         }
-        var replaced = Builder("a"); replaced.Compose<Definition>();
+        var replaced = Builder("a"); replaced.AddTroupe<Definition>();
         replaced.WebHost.ConfigureKestrel(o => o.Configure(replaced.Configuration.GetSection("Kestrel"), reloadOnChange: false));
-        replaced.FinalizeComposition(); var error = Assert.Throws<InvalidOperationException>(() => replaced.Build());
+        var error = Assert.Throws<InvalidOperationException>(() => replaced.Build());
         Assert.Contains("named endpoint loader was replaced", error.Message);
         Assert.Equal(1, callbacks);
     }
@@ -135,10 +134,9 @@ public sealed class KestrelTests
         using var certificates = new Certificates();
         var callbacks = 0;
         A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));
-        var early = TlsBuilder(certificates); early.Compose<Definition>();
+        var early = TlsBuilder(certificates); early.AddTroupe<Definition>();
         early.WebHost.ConfigureKestrel(o => o.Listen(IPAddress.Loopback, 0, l => l.UseHttps(certificates.Server)));
         early.ConfigureCompositionEndpoint("public", _ => callbacks++);
-        early.FinalizeComposition();
         var error = await Assert.ThrowsAsync<CompositionException>(async () =>
         {
             await using var app = early.Build(); app.UseComposition();
@@ -149,10 +147,9 @@ public sealed class KestrelTests
         Assert.Contains("endpoint public", diagnostic.Message);
         Assert.Equal(0, callbacks);
 
-        var adapter = TlsBuilder(certificates); adapter.Compose<Definition>();
+        var adapter = TlsBuilder(certificates); adapter.AddTroupe<Definition>();
         adapter.WebHost.ConfigureKestrel(o => o.Listen(IPAddress.Loopback, 0, l => l.UseHttps(new HttpsConnectionAdapterOptions { ServerCertificate = certificates.Server })));
         adapter.ConfigureCompositionEndpoint("public", _ => callbacks++);
-        adapter.FinalizeComposition();
         await using var started = adapter.Build(); started.UseComposition();
         await started.StartAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, callbacks);
@@ -161,17 +158,17 @@ public sealed class KestrelTests
     public async Task OverlappingAddressBindsFailAtStartRatherThanFromNumericPortRules()
     {
         A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));
-        var firstBuilder = Builder("a"); firstBuilder.Compose<Definition>();
-        firstBuilder.FinalizeComposition(); await using var first = firstBuilder.Build(); first.UseComposition();
+        var firstBuilder = Builder("a"); firstBuilder.AddTroupe<Definition>();
+        await using var first = firstBuilder.Build(); first.UseComposition();
         await first.StartAsync(TestContext.Current.CancellationToken);
         using var client = Client(first); var port = client.BaseAddress!.Port;
         var same = Builder("a"); same.Configuration["Kestrel:Endpoints:public:Url"] = $"http://127.0.0.1:{port}";
-        same.Compose<Definition>(); same.FinalizeComposition(); await using var collision = same.Build(); collision.UseComposition();
+        same.AddTroupe<Definition>(); await using var collision = same.Build(); collision.UseComposition();
         await Assert.ThrowsAsync<IOException>(() => collision.StartAsync(TestContext.Current.CancellationToken));
         if (System.Net.Sockets.Socket.OSSupportsIPv6)
         {
             var disjoint = Builder("a"); disjoint.Configuration["Kestrel:Endpoints:public:Url"] = $"http://[::1]:{port}";
-            disjoint.Compose<Definition>(); disjoint.FinalizeComposition(); await using var ipv6 = disjoint.Build(); ipv6.UseComposition();
+            disjoint.AddTroupe<Definition>(); await using var ipv6 = disjoint.Build(); ipv6.UseComposition();
             await ipv6.StartAsync(TestContext.Current.CancellationToken);
             using var ipv6Client = Client(ipv6);
             Assert.Equal("ok", await ipv6Client.GetStringAsync("/", TestContext.Current.CancellationToken));

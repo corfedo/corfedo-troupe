@@ -1,4 +1,3 @@
-using Corfedo.Troupe;
 using Corfedo.Troupe.AspNetCore;
 using Corfedo.Troupe.Examples.Operations;
 
@@ -11,7 +10,6 @@ if (args is ["certificates", ..])
 }
 
 var builder = OperationsApplication.CreateBuilder(args);
-builder.FinalizeComposition();
 await using var application = builder.Build();
 application.UseComposition();
 await application.RunAsync();

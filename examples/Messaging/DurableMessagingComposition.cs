@@ -9,9 +9,9 @@ public sealed class DurableMessagingComposition : ICompositionDefinition
 {
     public void Define(ICompositionDefinitionBuilder definition)
     {
-        definition.Role<DurableOrdersRole>().Role<DurableNotificationsRole>().Role<PublisherRole>()
-            .Profile("orders", "orders").Profile("notifications", "notifications")
-            .Profile("combined", "orders", "notifications").Profile("publisher", "publisher");
+        definition.Profile("orders", p => p.Role<DurableOrdersRole>()).Profile("notifications", p => p.Role<DurableNotificationsRole>())
+            .Profile("combined", p => p.Role<DurableOrdersRole>().Role<DurableNotificationsRole>())
+            .Profile("publisher", p => p.Role<PublisherRole>());
         definition.Stages("routing");
     }
 }
@@ -90,7 +90,7 @@ public sealed class PublisherRole : IRole
 
 public sealed class DurableProvisioningComposition : ICompositionDefinition
 {
-    public void Define(ICompositionDefinitionBuilder definition) => definition.Role<DurableProvisioningRole>().Profile("provision", "provision");
+    public void Define(ICompositionDefinitionBuilder definition) => definition.Profile("provision", p => p.Role<DurableProvisioningRole>());
 }
 
 [Role("provision")]

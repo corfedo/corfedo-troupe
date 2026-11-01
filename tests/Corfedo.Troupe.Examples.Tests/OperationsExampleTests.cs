@@ -32,13 +32,13 @@ public sealed class OperationsExampleTests : IDisposable
         }, cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(result.Succeeded, result.ToString());
         Assert.Equal(5, result.Profiles.Count);
-        var combined = result.Profiles.Single(p => p.Profile.Name == "combined");
+        var combined = result.Profiles.Single(p => p.Profile!.Name == "combined");
         var listener = combined.AspNetManifest!.KestrelEndpoints.Single(e => e.Name == "internal");
         Assert.Equal(typeof(InternalListener), listener.CallbackOwner!.Type);
         Assert.Null(combined.AspNetManifest.KestrelEndpoints.Single(e => e.Name == "public").CallbackOwner);
-        Assert.Equal(["public"], result.Profiles.Single(p => p.Profile.Name == "api").AspNetManifest!.KestrelEndpoints.Select(e => e.Name));
-        Assert.Equal(["internal"], result.Profiles.Single(p => p.Profile.Name == "gateway").AspNetManifest!.KestrelEndpoints.Select(e => e.Name));
-        var reads = result.Profiles.Single(p => p.Profile.Name == "api").Manifest!.Configuration.Where(r => r.UnlessComposed is not null).ToArray();
+        Assert.Equal(["public"], result.Profiles.Single(p => p.Profile!.Name == "api").AspNetManifest!.KestrelEndpoints.Select(e => e.Name));
+        Assert.Equal(["internal"], result.Profiles.Single(p => p.Profile!.Name == "gateway").AspNetManifest!.KestrelEndpoints.Select(e => e.Name));
+        var reads = result.Profiles.Single(p => p.Profile!.Name == "api").Manifest!.Configuration.Where(r => r.UnlessComposed is not null).ToArray();
         Assert.Contains(reads, r => r.Section == "Roles:Remote:gateway" && r.UnlessComposed == typeof(GatewayHost));
         Assert.Contains(reads, r => r.Section == "Roles:Remote:ai" && r.UnlessComposed == typeof(AiHost));
     }
@@ -133,8 +133,7 @@ public sealed class OperationsExampleTests : IDisposable
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         { Args = args.ToArray(), ContentRootPath = ApplicationExamplesTests.ContentRoot("Operations") });
         builder.Logging.ClearProviders();
-        builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
-        builder.Compose<T>();
+        builder.AddTroupe<T>();
         return builder;
     }
     private string[] Remote(Uri? gateway, Uri? ai)
@@ -146,7 +145,6 @@ public sealed class OperationsExampleTests : IDisposable
     }
     private static async Task<WebApplication> StartAsync(WebApplicationBuilder builder)
     {
-        builder.FinalizeComposition();
         var application = builder.Build(); application.UseComposition();
         await application.StartAsync(TestContext.Current.CancellationToken);
         return application;

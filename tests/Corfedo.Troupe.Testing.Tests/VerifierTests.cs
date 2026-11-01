@@ -18,7 +18,6 @@ public sealed class VerifierTests
     private static HostApplicationBuilder Builder(ProfileIdentity profile)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
-        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Configuration["Profile"] = profile.Name;
         builder.Configuration["Probe:Count"] = "2";
         return builder;
@@ -58,7 +57,7 @@ public sealed class VerifierTests
             services.RemoveAll<IValue>(); services.AddSingleton<IValue, Replacement>();
         }, TestContext.Current.CancellationToken);
         Assert.True(result.Succeeded, result.ToString());
-        var manifest = result.Profiles.Single(p => p.Profile.Name == "a").Manifest!;
+        var manifest = result.Profiles.Single(p => p.Profile!.Name == "a").Manifest!;
         var original = Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Original));
         Assert.False(original.Active); Assert.Equal(new CompositionOwner(OwnerKind.Test, "test:a"), original.RemovedBy);
         var replacement = Assert.Single(manifest.Services, s => s.ImplementationType == typeof(Replacement));
@@ -104,9 +103,9 @@ public sealed class VerifierTests
         };
         var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(Builder, cancellationToken: TestContext.Current.CancellationToken);
         Assert.False(result.Succeeded); Assert.Equal(2, result.Profiles.Count); Assert.Equal(2, result.Failures.Count);
-        Assert.Contains(result.Failures, f => f.Profile.Name == "a" && !f.DuringDisposal && f.Exception.Message == "options failed");
-        Assert.Contains(result.Failures, f => f.Profile.Name == "a" && f.DuringDisposal && f.Exception.Message == "cleanup failed");
-        Assert.Equal(1, disposed); Assert.DoesNotContain(result.Failures, f => f.Profile.Name == "b");
+        Assert.Contains(result.Failures, f => f.Profile!.Name == "a" && !f.DuringDisposal && f.Exception.Message == "options failed");
+        Assert.Contains(result.Failures, f => f.Profile!.Name == "a" && f.DuringDisposal && f.Exception.Message == "cleanup failed");
+        Assert.Equal(1, disposed); Assert.DoesNotContain(result.Failures, f => f.Profile!.Name == "b");
     }
     [Fact]
     public async Task RequiredOptionsAndBuildValidationFailuresCarryProfileAndManifest()
@@ -116,8 +115,8 @@ public sealed class VerifierTests
         var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(Builder, cancellationToken: TestContext.Current.CancellationToken);
         Assert.False(result.Succeeded); Assert.Equal(2, result.Failures.Count);
         Assert.All(result.Failures, f => Assert.NotNull(f.Manifest));
-        Assert.Contains(result.Failures, f => f.Profile.Name == "a" && f.Exception is CompositionException);
-        Assert.Contains(result.Failures, f => f.Profile.Name == "b" && f.Exception is AggregateException);
+        Assert.Contains(result.Failures, f => f.Profile!.Name == "a" && f.Exception is CompositionException);
+        Assert.Contains(result.Failures, f => f.Profile!.Name == "b" && f.Exception is AggregateException);
     }
     [Fact]
     public async Task WebProfilesMapRealPipelineAndReportDuplicateNamesWithoutStarting()
@@ -128,14 +127,13 @@ public sealed class VerifierTests
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
             builder.Configuration["Kestrel:Endpoints:public:Url"] = "http://127.0.0.1:0";
-            builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
             return builder;
         }, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Single(result.Failures);
         var combined = Assert.Single(result.Failures);
-        Assert.Equal("both", combined.Profile.Name); Assert.Contains("TRP101", combined.Exception.Message);
-        Assert.Equal(2, result.Profiles.Single(p => p.Profile.Name == "both").AspNetManifest!.Endpoints.Count);
-        Assert.Single(result.Profiles.Single(p => p.Profile.Name == "single").AspNetManifest!.Endpoints);
+        Assert.Equal("both", combined.Profile!.Name); Assert.Contains("TRP101", combined.Exception.Message);
+        Assert.Equal(2, result.Profiles.Single(p => p.Profile!.Name == "both").AspNetManifest!.Endpoints.Count);
+        Assert.Single(result.Profiles.Single(p => p.Profile!.Name == "single").AspNetManifest!.Endpoints);
     }
     [Fact]
     public async Task PrecomposedBuilderCanApplyApplicationAdaptersAndUnconsumedContributionsFail()
@@ -143,7 +141,7 @@ public sealed class VerifierTests
         A.Declare = r => r.Contribute<AdapterBuilder>(b => b.Values.Add("a"));
         var applied = await CompositionVerifier.VerifyProfilesAsync<Definition>(profile =>
         {
-            var builder = Builder(profile); builder.Compose<Definition>();
+            var builder = Builder(profile); builder.AddTroupe<Definition>();
             var target = new AdapterBuilder(); builder.ApplyContributions(target);
             builder.Services.AddSingleton(target);
             return builder;
@@ -159,9 +157,9 @@ public sealed class VerifierTests
     {
         var wrong = await CompositionVerifier.VerifyProfilesAsync<Definition>(_ =>
         {
-            var builder = Builder(new("a", ["a"])); builder.Compose<Definition>(); return builder;
+            var builder = Builder(new("a", ["a"])); builder.AddTroupe<Definition>(); return builder;
         }, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.Equal("b", Assert.Single(wrong.Failures).Profile.Name);
+        Assert.Equal("b", Assert.Single(wrong.Failures).Profile!.Name);
         await Assert.ThrowsAsync<InvalidOperationException>(() => CompositionVerifier.VerifyProfilesAsync<NoProfiles>(Builder, cancellationToken: TestContext.Current.CancellationToken));
     }
     [Fact]
@@ -216,7 +214,7 @@ public sealed class VerifierTests
         };
         var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(Builder, cancellationToken: TestContext.Current.CancellationToken);
         var failure = Assert.Single(result.Failures);
-        Assert.Equal("b", failure.Profile.Name);
+        Assert.Equal("b", failure.Profile!.Name);
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP005" && d.Message.Contains(typeof(Remote).FullName!));
         Assert.Equal(new Dictionary<string, bool> { ["a"] = true }, included);
         result = await CompositionVerifier.VerifyProfilesAsync<Definition>(profile =>
@@ -227,14 +225,16 @@ public sealed class VerifierTests
         Assert.Equal(new Dictionary<string, bool> { ["a"] = true, ["b"] = false }, included);
     }
     [Fact]
-    public async Task ProviderFactorySuppliedByApplicationIsPreserved()
+    public async Task ProviderFactorySuppliedByApplicationFailsWithTrp018()
     {
         var factory = new RecordingProviderFactory();
         var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(profile =>
         {
-            var builder = Builder(profile); builder.ConfigureContainer(factory); return builder;
+            var builder = Builder(profile); builder.AddTroupe<Definition>(); builder.ConfigureContainer(factory); return builder;
         }, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.True(result.Succeeded, result.ToString()); Assert.Equal(2, factory.Builders); Assert.Equal(2, factory.Providers);
+        Assert.Equal(["a", "b"], result.Failures.Select(f => f.Profile!.Name));
+        Assert.All(result.Failures, f => Assert.Contains(f.Manifest!.Diagnostics, d => d.Code == "TRP018"));
+        Assert.Equal(2, factory.Builders);
     }
     [Fact]
     public async Task MissingRoutingFailureManifestIncludesItsCause()
@@ -243,11 +243,10 @@ public sealed class VerifierTests
         var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(profile =>
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
-            builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
             return builder;
         }, cancellationToken: TestContext.Current.CancellationToken);
         var failure = Assert.Single(result.Failures);
-        Assert.Equal("a", failure.Profile.Name);
+        Assert.Equal("a", failure.Profile!.Name);
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP100" && d.Message.Contains("UseRouting"));
     }
     [Fact]
@@ -259,17 +258,42 @@ public sealed class VerifierTests
     }
     private sealed class RecordingProviderFactory : IServiceProviderFactory<IServiceCollection>
     {
-        private readonly DefaultServiceProviderFactory inner = new(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        private readonly DefaultServiceProviderFactory inner = new();
         internal int Builders;
-        internal int Providers;
         public IServiceCollection CreateBuilder(IServiceCollection services) { Builders++; return inner.CreateBuilder(services); }
-        public IServiceProvider CreateServiceProvider(IServiceCollection services) { Providers++; return inner.CreateServiceProvider(services); }
+        public IServiceProvider CreateServiceProvider(IServiceCollection services) => inner.CreateServiceProvider(services);
     }
+    [Fact]
+    public async Task CompositionWithoutRolesVerifiesOnceWithANullProfile()
+    {
+        var result = await CompositionVerifier.VerifyAsync<ComponentsDefinition>(() => Builder(), cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(result.Succeeded, result.ToString());
+        var entry = Assert.Single(result.Profiles);
+        Assert.Null(entry.Profile); Assert.True(entry.Manifest!.Composes<Remote>());
+        Assert.Equal("Verified 1 composition.", result.ToString());
+
+        var failed = await CompositionVerifier.VerifyAsync<ComponentsDefinition>(() =>
+        {
+            var builder = Builder(); builder.Configuration["Profile"] = "a"; return builder;
+        }, cancellationToken: TestContext.Current.CancellationToken);
+        var failure = Assert.Single(failed.Failures);
+        Assert.Null(failure.Profile); Assert.StartsWith("composition: ", failed.ToString());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CompositionVerifier.VerifyProfilesAsync<ComponentsDefinition>(
+            _ => Builder(), cancellationToken: TestContext.Current.CancellationToken));
+    }
+    private static HostApplicationBuilder Builder()
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
+        builder.Configuration["Probe:Count"] = "2";
+        return builder;
+    }
+    public sealed class ComponentsDefinition : ICompositionDefinition
+    { public void Define(ICompositionDefinitionBuilder d) => d.Requires<Remote>(); }
     public sealed class RuleState { public bool Throw; }
     public sealed class RuleDefinition : ICompositionDefinition
     {
         internal static RuleState State = new();
-        public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Profile("a", "a").Rule(new ThrowRule(State));
+        public void Define(ICompositionDefinitionBuilder d) => d.Profile("a", p => p.Role<A>()).Rule(new ThrowRule(State));
     }
     private sealed class ThrowRule(RuleState state) : ICompositionRule
     {
@@ -277,13 +301,13 @@ public sealed class VerifierTests
             state.Throw ? throw new InvalidOperationException("rule failed") : [];
     }
     public sealed class Definition : ICompositionDefinition
-    { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<B>().Profile("a", "a").Profile("b", "b"); }
+    { public void Define(ICompositionDefinitionBuilder d) => d.Profile("a", p => p.Role<A>()).Profile("b", p => p.Role<B>()); }
     public sealed class NoProfiles : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>(); }
     public sealed class WebDefinition : ICompositionDefinition
     {
         public void Define(ICompositionDefinitionBuilder d)
-        { d.Role<A>().Role<B>().Profile("both", "a", "b").Profile("single", "a"); d.Stages("routing"); }
+        { d.Profile("both", p => p.Role<A>().Role<B>()).Profile("single", p => p.Role<A>()); d.Stages("routing"); }
     }
     [Role("a")] public sealed class A : IRole
     {

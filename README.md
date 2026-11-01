@@ -14,203 +14,81 @@
   <a href="https://github.com/corfedo/corfedo-troupe/actions/workflows/ci.yml"><img src="https://github.com/corfedo/corfedo-troupe/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
 </p>
 
-**A host composition framework for .NET.** In a large application, `Program.cs` grows into hundreds of
-registrations nobody owns, and a missing configuration section or a conflicting registration shows up only when a
-request hits it. Troupe builds the host from components that declare what they register, what they require, which
-configuration they read and what they contribute to other builders. It records the owner of every registration, so a
-misconfigured host fails at startup with a diagnostic code that names the owners involved. Roles and profiles select
-the components of each process, so one executable runs combined or split across processes from the same
-declarations.
+**Compose a .NET host from components that declare what they need, and catch a misconfigured host before it
+serves a request.**
 
-Use it to keep a multi-role .NET application composable and checkable:
+As an application grows, so does the code that composes it. One `Program.cs`, or one `AddEverything()` extension,
+wires every project into the host. Projects start to reference each other only because that code needs them, a
+change in one area pulls in another it never touches, and the boundaries drift. Nothing says what a new component
+should look like, so each one, whether a person or a coding agent adds it, is wired the way the nearest example was.
 
-- **Declared dependencies.** Roles and components require other components; Troupe resolves the selected closure,
-  orders it and composes each component once.
-- **One executable, many deployments.** Profiles name exact role sets, such as `combined`, `api` or `worker`,
-  selected with `--profile` at startup.
-- **Startup diagnostics.** Missing configuration sections, foreign service removals, unapplied contributions and
-  Kestrel endpoint mismatches fail with stable `TRP` codes.
-- **A queryable manifest.** Every process can tell what it composes, who registered each service and who reads each
-  configuration section.
-- **Real-host tests.** Verify every declared profile, compose a slice of components and replace services with
-  recorded test ownership.
+Troupe gives every part of the host the same shape. A component declares the services it registers, the
+configuration it reads, the components it requires and what it contributes to builders the application owns. Troupe
+resolves and orders the components, records the owner of every registration, and stops startup with a diagnostic
+that names the owners when a section is missing, two components claim one service or a listener is not requested.
+When the application later runs as several processes, roles select components from the same declarations.
 
-> [!NOTE]
-> Troupe composes hosts; it does not implement operations. Calls between roles, routing to another process,
-> transports such as gRPC, serialization, caller identity and addresses belong to the application, which builds them
-> on Troupe's facts. Troupe knows only what is composed in this process: "remote" means "not composed here".
+## Is it for you?
 
-## Quick start
+It is a good fit if you have seen any of these:
 
-Requires the .NET 10 SDK. The packages are on nuget.org:
+- The composition code is the largest file in the solution, and every feature edits it.
+- Projects reference each other only so that one host can register them, although they work in different areas.
+- New components are wired by copying whichever registration looked closest, so no two are wired the same way.
+- One component's `AddHttpClient` or `AddDbContext` silently overrides another's.
+- A host started fine and failed on its first request because a configuration section was missing.
+- To run parts separately you keep a Host project and a `Program.cs` per service, plus one more that runs them all
+  together, each repeating the wiring.
+
+## A first application
 
 ```sh
 dotnet add package Corfedo.Troupe
 dotnet add package Corfedo.Troupe.AspNetCore   # middleware stages, endpoints and Kestrel endpoints
-dotnet add package Corfedo.Troupe.Testing      # profile verification and test overrides
+dotnet add package Corfedo.Troupe.Testing      # composition verification and test overrides
 ```
 
-The packages depend on each other's exact version, so update them together. A role requires a component, and a
-definition lists the roles and the profiles that serve them:
+A shop has a catalog and orders. Both need the product list, which owns the `Products` configuration section, and
+both serve HTTP through one public listener:
 
 ```csharp
-public sealed class WorkerComposition : ICompositionDefinition
+public sealed class ShopComposition : ICompositionDefinition
 {
-    public void Define(ICompositionDefinitionBuilder definition) => definition.Role<WorkerRole>().Profile("worker", "worker");
-}
-
-[Role("worker")]
-public sealed class WorkerRole : IRole
-{
-    public void Compose(IRoleBuilder role)
+    public void Define(ICompositionDefinitionBuilder definition)
     {
-        role.Requires<WorkerSettings>();
-        role.Services(services => services.AddHostedService<Heartbeat>());
+        definition.Requires<CatalogComponent>().Requires<OrdersComponent>();
+        definition.Stages("routing");
     }
 }
 
-public sealed class WorkerSettings : IComponent
-{
-    public void Compose(IComponentBuilder component) => component.Options<HeartbeatOptions, HeartbeatValidator>("Worker");
-}
-```
-
-The host composes the definition, applies any builder adapters, finalizes and builds:
-
-```csharp
-var builder = Host.CreateApplicationBuilder(args);
-builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
-builder.Compose<WorkerComposition>();
-builder.FinalizeComposition();
-using var host = builder.Build();
-await host.RunAsync();
-```
-
-Run it with `dotnet run -- --profile worker`. Without a `Worker` section in configuration, `Compose` throws a
-`CompositionException` whose TRP005 diagnostic names `WorkerSettings` and the missing section, and the host never
-starts. The complete program is the [worker example](examples/Worker).
-
-`FinalizeComposition` goes after adapters and before `Build`: it captures the registrations adapters made and rejects
-contributions no adapter applied. Skipping it fails with TRP018. Keep `ValidateOnBuild` and `ValidateScopes` enabled.
-
-## Concepts
-
-### Components and requirements
-
-An `IComponent` is a shared dependency, composed once however many contributors require it. `Requires<T>()` places
-`T` before the requiring role or component. `Compose` only records declarations; callbacks such as `Services` run
-after the selected graph is validated and ordered, so declarations must not perform I/O or acquire resources.
-
-```csharp
-public sealed class OrdersConsumer : IComponent
+public sealed class CatalogComponent : IComponent
 {
     public void Compose(IComponentBuilder component)
     {
-        component.Requires<MessageProcessing>();
-        component.Services(services => services.AddSingleton<OrderFormatter>());
+        component.Requires<PublicIngressComponent>().Requires<ProductsComponent>();
+        component.Endpoints(endpoints => endpoints.MapGet("/products", (ProductCatalog catalog) => catalog.All));
     }
 }
-```
 
-`Check(...)` records a startup check that runs before hosted services start. `ExclusiveService<T>()` allows at most
-one registration of `T` (TRP004).
+public sealed class OrdersComponent : IComponent
+{
+    public void Compose(IComponentBuilder component)
+    {
+        component.Requires<PublicIngressComponent>().Requires<ProductsComponent>();
+        component.Endpoints(endpoints => endpoints.MapPost("/orders", (OrderRequest order, ProductCatalog catalog) => ...));
+    }
+}
 
-### Options and configuration
+public sealed class ProductsComponent : IComponent
+{
+    public void Compose(IComponentBuilder component)
+    {
+        component.Options<ProductOptions>("Products");
+        component.Services(services => services.AddSingleton<ProductCatalog>());
+    }
+}
 
-`Options<T>(section)` binds one owned section, validates its presence and adds `ValidateOnStart`;
-`Options<T, TValidator>` also registers a validator. `ReadsConfiguration` records a section the component reads
-itself. A required section that is absent fails composition with TRP005. The manifest records paths and owners,
-never values.
-
-```csharp
-component.Options<StorageOptions, StorageOptionsValidator>("Storage");
-component.ReadsConfiguration("ConnectionStrings:Storage");
-component.ReadsConfiguration("Storage:Cache", required: false);
-component.ReadsConfigurationUnless<GatewayHost>("Roles:Remote:gateway");
-```
-
-`ReadsConfigurationUnless<TComponent>` makes a section required only when `TComponent` is not composed here, such
-as the address of an owner that runs in another process.
-
-### Contributions
-
-A component can contribute to a third-party builder that the application owns, such as Wolverine's options. The
-application applies all contributions to that builder type once, inside its own configuration call:
-
-```csharp
-// In a component
-component.Contribute<WolverineOptions>(options => options.Discovery.IncludeType(typeof(PlaceOrderHandler)));
-
-// In the application
-builder.UseWolverine(options => builder.ApplyContributions(options));
-```
-
-Registrations a contribution callback adds are owned by its contributor. A contribution no adapter applied fails
-`FinalizeComposition` with TRP008. When several owners register the same service type, Troupe reports the TRP001
-advisory; `MultipleAllowed<T>()` declares that this is intended.
-
-### Roles and profiles
-
-A role is a selectable workload named by `[Role]`. A profile is an exact supported role set:
-
-```csharp
-definition.Role<OrdersRole>().Role<NotificationsRole>()
-    .Profile("orders", "orders").Profile("notifications", "notifications")
-    .Profile("combined", "orders", "notifications");
-```
-
-The `Profile` configuration value selects one (`--profile combined` or `PROFILE=combined`); an unknown name fails
-with TRP013 and lists the declared profiles. A definition without profiles is selected by `Roles` instead, a
-comma-separated value such as `--roles orders,notifications`. `CompositionExtensions.DeclaredProfiles<T>()` lists the
-profiles without composing, for example for usage text.
-
-At runtime, `IComposition` reports membership: `composition.Includes<GatewayHost>()` tells a caller whether to call
-that owner in process or over the application's own transport. The same declarations serve one combined process or
-several split ones; only the selected profile and its configuration differ.
-
-### The composition manifest
-
-`Compose`, `FinalizeComposition` and `IComposition.Manifest` return a `CompositionManifest`: the selected profile and
-roles, contributors in execution order, every service registration with its owner, configuration reads,
-contributions and diagnostics.
-
-```csharp
-var manifest = host.Services.GetRequiredService<IComposition>().Manifest;
-bool processing = manifest.Composes<MessageProcessing>();
-var path = manifest.PathTo<MessageProcessing>();   // --profile orders: orders, OrdersConsumer, MessageProcessing
-var owner = path[^1];
-var registrations = manifest.OwnedBy(owner).Where(s => s.Active);
-var readers = manifest.Reads("Storage").Select(r => r.Owner);
-var wolverine = manifest.ContributorsTo<WolverineOptions>();
-```
-
-`Active(serviceType, key)` lists the registrations in one service slot. Removed and replaced registrations stay in
-the manifest with `RemovedBy` and `ReplacedBy`. An `ICompositionRule` added with `definition.Rule(...)` evaluates
-application policy against the manifest.
-
-### Diagnostics
-
-A failed composition throws `CompositionException`. Its `Diagnostics` carry a stable code, a severity, a message and
-the implicated owners; its `Manifest` is the snapshot available at the failure. Errors fail composition; advisories
-are reported in `CompositionManifest.Diagnostics` and do not.
-
-| Codes | Family |
-| --- | --- |
-| TRP001–TRP008 | Services, configuration and contributions: duplicate services (advisory), duplicate hosted services, removing another owner's registration, exclusive slots, missing sections, factory hosted services (advisory), a second `Options<T>`, unapplied contributions |
-| TRP010–TRP014 | Definition and selection: role names, profiles, unknown roles, profile selection, dependency cycles |
-| TRP015–TRP020 | Phases and tests: declarations after `Compose`, calls in the wrong phase, callback failures, a skipped `FinalizeComposition`, test replacement targets, a test root outside its profile |
-| TRP100–TRP106 | ASP.NET Core: stages and routing, endpoint names, route overlaps (advisory), Kestrel endpoints, a second endpoint callback owner, an unapplied pipeline, early Kestrel configuration loads |
-
-Each message names the owner, section, service or endpoint involved.
-
-## ASP.NET Core
-
-`Corfedo.Troupe.AspNetCore` lets components declare middleware, endpoints and named Kestrel endpoints. The
-definition declares the stage order with `definition.Stages("routing")`, and a component places `UseRouting`
-explicitly in a stage:
-
-```csharp
-public sealed class PublicIngress : IComponent
+public sealed class PublicIngressComponent : IComponent
 {
     public void Compose(IComponentBuilder component)
     {
@@ -220,98 +98,104 @@ public sealed class PublicIngress : IComponent
 }
 ```
 
-Roles map endpoints with `role.Endpoints(endpoints => ...)`. After `Build`, `app.UseComposition()` applies the
-stages in order, then maps each owner's endpoints; a recorded pipeline that was never applied fails startup with
-TRP105. See the [web example](examples/Web/Program.cs) for the complete program.
-
-`KestrelEndpoint(name)` requires `Kestrel:Endpoints:<name>`; a missing endpoint and a configured endpoint that no
-composed component requests both fail with TRP103. `KestrelEndpoint(name, configure)` also makes the component the
-endpoint's single callback owner, for example for its TLS and client certificate policy; a second owner fails with
-TRP104. Troupe configures Kestrel's endpoint loader from the `Kestrel` section, so the application does not call
-`KestrelServerOptions.Configure`.
-
-Before `Build`, `builder.AspNetComposition()` returns the declared stages and Kestrel endpoint requirements, also
-after a failed `Compose`. Check `Complete` first: it is false when `Compose` failed before every contributor's
-declarations ran.
+`Program.cs` adds the composition and applies its pipeline:
 
 ```csharp
-if (builder.AspNetComposition() is { Complete: true } web)
-    Console.Error.WriteLine($"Configure Kestrel:Endpoints for {string.Join(", ", web.KestrelEndpoints.Select(e => e.Name))}.");
+var builder = WebApplication.CreateBuilder(args);
+builder.AddTroupe<ShopComposition>();
+await using var app = builder.Build();
+app.UseComposition();
+await app.RunAsync();
 ```
 
-A code listener beside named endpoints must use `UseHttps(HttpsConnectionAdapterOptions)`,
-`UseHttps(TlsHandshakeCallbackOptions)` or `UseHttps(ServerOptionsSelectionCallback, state)`. The other `UseHttps`
-overloads load the endpoint configuration immediately, so an endpoint callback attached later would never run; Troupe
-detects this and fails with TRP106.
+Run it with `dotnet run --project examples/Web`. `ProductsComponent` and `PublicIngressComponent` are composed once,
+although two components require them, and each component's registrations and endpoints are recorded with it as their
+owner. Without the `Products` section, or without the `public` endpoint in `Kestrel:Endpoints`, the host stops before
+it listens:
 
-```csharp
-builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 5443,
-    listen => listen.UseHttps(new HttpsConnectionAdapterOptions { ServerCertificate = certificate })));
+```text
+Unhandled exception. Corfedo.Troupe.CompositionException: TRP005: Corfedo.Troupe.Examples.Web.ProductsComponent: required section Products is missing.
+Unhandled exception. Corfedo.Troupe.CompositionException: TRP103: Requested Kestrel endpoint public is missing from Kestrel:Endpoints.
 ```
 
-## Testing
-
-`Corfedo.Troupe.Testing` works with any test runner. `CompositionVerifier` builds every declared profile of a
-definition with real builders, resolves declared options, maps web endpoints and disposes each host, without starting
-it:
+One test builds the host with the application's own builder, without starting it:
 
 ```csharp
-var result = await CompositionVerifier.VerifyProfilesAsync<WorkerComposition>(
-    profile => WorkerApplication.CreateBuilder(["--profile", profile.Name], contentRoot));
+var result = await CompositionVerifier.VerifyAsync<ShopComposition>(() => ShopApplication.CreateBuilder([]));
 Assert.True(result.Succeeded, result.ToString());
 ```
 
-The factory returns a fresh builder per profile; an optional `overrides` callback replaces external resources.
+The complete program and its tests are the [Web example](examples/Web) and
+[`ApplicationExamplesTests`](tests/Corfedo.Troupe.Examples.Tests/ApplicationExamplesTests.cs).
 
-`ComposeForTest` composes a slice: a test-owned root `test:<name>` that declares like a role, with the definition's
-stages and rules. With `withinProfile`, a required component that the profile does not compose fails with TRP020.
+## Splitting into processes
 
-```csharp
-builder.ComposeForTest<WorkerComposition>(root => root.Requires<WorkerSettings>(), name: "settings", withinProfile: "worker");
-builder.FinalizeComposition();
-```
-
-On a composed builder, `TestServices(name, services => ...)` adds registrations owned by `test:<name>`; removing
-another owner's registration there fails with TRP003. `ReplaceForTest<TService>(name, descriptor)` replaces the one
-active registration in a service slot in place, and the manifest links the original to the replacement. A missing
-target, or several that the `owner` argument does not narrow to one, fails with TRP019.
-
-When one owner registers several descriptors in a slot, a predicate selects exactly one of them. A typed client
-configured twice for one name has two `IConfigureOptions<HttpClientFactoryOptions>`; this replaces the one that sets
-the primary handler:
+When parts of the application need to run on their own, roles name sets of components and profiles name the sets of
+roles a process runs. The components stay as they are:
 
 ```csharp
-builder.ReplaceForTest<IConfigureOptions<HttpClientFactoryOptions>>("stub-handler",
-    ServiceDescriptor.Singleton<IConfigureOptions<HttpClientFactoryOptions>>(new ConfigureNamedOptions<HttpClientFactoryOptions>(
-        "catalog", options => options.HttpMessageHandlerBuilderActions.Add(b => b.PrimaryHandler = new StubHandler()))),
-    owner: typeof(CatalogComponent),
-    match: descriptor =>
-    {
-        if (descriptor.ImplementationInstance is not ConfigureNamedOptions<HttpClientFactoryOptions> { Name: "catalog" } configure) return false;
-        var probe = new HttpClientFactoryOptions();
-        configure.Configure("catalog", probe);
-        return probe.HttpMessageHandlerBuilderActions.Count > 0;
-    });
+public void Define(ICompositionDefinitionBuilder definition)
+{
+    definition
+        .Profile("catalog", profile => profile.Role<CatalogRole>())
+        .Profile("orders", profile => profile.Role<OrdersRole>())
+        .Profile("combined", profile => profile.Role<CatalogRole>().Role<OrdersRole>());
+    definition.Stages("routing");
+}
+
+[Role("catalog")]
+public sealed class CatalogRole : IRole
+{
+    public void Compose(IRoleBuilder role) => role.Requires<CatalogComponent>();
+}
 ```
 
-Zero or several matches fail with TRP019, and the message lists the candidates.
+One executable then runs with `--profile combined` on a laptop and with `--profile catalog` and `--profile orders`
+as separate deployments, instead of one Host project per service. Each process composes only what its roles need;
+`CompositionVerifier.VerifyProfilesAsync` builds every profile in one test. See
+[components, roles and profiles](docs/guides/composition.md) and the [Messaging](examples/Messaging) and
+[Operations](examples/Operations) examples.
+
+## How it works
+
+`AddTroupe` resolves the components the definition requires, and those of the selected roles when it has roles,
+runs each component's declarations once in dependency order and checks the configuration they require. `Build` checks the registrations again, including the ones adapters such as `UseWolverine` made after
+`AddTroupe`, and builds the service provider with `ValidateOnBuild` and `ValidateScopes` enabled. A failure in either
+step throws a `CompositionException` before the host starts.
+
+- **[Components, roles and profiles](docs/guides/composition.md):** requirements, splitting into processes, runtime
+  membership (`IComposition.Includes<T>()`), startup checks.
+- **[Configuration](docs/guides/configuration.md):** owned options sections, manual reads, sections required only
+  when an owner runs in another process.
+- **[Contributions](docs/guides/contributions.md):** configuring a builder the application owns, such as
+  Wolverine's options, from several components.
+- **[The manifest](docs/guides/manifest.md):** what a process composes, who registered each service, who reads
+  each section, and application rules.
+- **[ASP.NET Core](docs/guides/aspnetcore.md):** middleware stages, endpoints and named Kestrel endpoints.
+- **[Testing](docs/guides/testing.md):** verifying the composition and every profile, composing a slice, replacing
+  services.
+- **[Diagnostics](docs/guides/diagnostics.md):** every `TRP` code and what to change.
+
+Troupe composes hosts; it does not call between them. Routing a call to another process, its transport,
+serialization and caller identity belong to the application, which uses `IComposition.Includes<T>()` to decide
+whether an owner runs in this process. The [Operations example](examples/Operations) shows one way to do that.
 
 ## Examples
 
 | Example | Shows |
 | --- | --- |
-| [Worker](examples/Worker) | A generic host with one role, validated options and a `BackgroundService` |
-| [Web](examples/Web) | Two roles sharing an ingress component: stages, Minimal APIs, health checks and a named Kestrel endpoint |
-| [Messaging](examples/Messaging) | Wolverine handlers contributed per role, request/reply, local queues and a PostgreSQL transport across processes |
-| [Operations](examples/Operations) | Owners called in process or over mutual TLS from the same declarations, using `Includes` and `ReadsConfigurationUnless` |
+| [Web](examples/Web) | Components sharing a component and its configuration in one web application |
+| [Worker](examples/Worker) | A generic host with validated options and a `BackgroundService` |
+| [Messaging](examples/Messaging) | Roles and profiles: Wolverine handlers contributed per role, local queues and a PostgreSQL transport across processes |
+| [Operations](examples/Operations) | Owners called in process or over mutual TLS from the same declarations |
 
-`tests/Corfedo.Troupe.Examples.Tests` verifies every example profile and starts real hosts; run all tests with
+`tests/Corfedo.Troupe.Examples.Tests` verifies every example and starts real hosts. Run all tests with
 `dotnet test Corfedo.Troupe.slnx`.
 
 ## Status and license
 
-This is version 0.1.1; the API may change before 1.0. Named options, live topology changes and Native AOT are not
-supported yet. Contributions are welcome through issues and pull requests.
+This is version 0.1.1; the API may change before 1.0. Named options, live topology changes, Native AOT and
+third-party DI containers are not supported yet. Contributions are welcome through issues and pull requests.
 
 Troupe is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for the reservation of Corfedo names, logos and
 brand assets.

@@ -15,13 +15,11 @@ public sealed class TestCompositionTests
     private static HostApplicationBuilder Builder()
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
-        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         return builder;
     }
     private static WebApplicationBuilder WebBuilder()
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = [], ContentRootPath = AppContext.BaseDirectory });
-        builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
         return builder;
     }
     [Fact]
@@ -39,7 +37,6 @@ public sealed class TestCompositionTests
         Assert.Equal([new CompositionOwner(OwnerKind.Component, typeof(Branch).FullName!, typeof(Branch))], manifest.Contributors[^1].Dependencies);
         Assert.Equal(Root, Assert.Single(manifest.Services, s => s.ServiceType == typeof(Probe)).Owner);
         Assert.True(CountingRule.Calls > 0);
-        builder.FinalizeComposition();
         using var host = builder.Build();
         var composition = host.Services.GetRequiredService<IComposition>();
         Assert.True(composition.Includes<Store>()); Assert.False(composition.Includes<Elsewhere>());
@@ -50,12 +47,13 @@ public sealed class TestCompositionTests
     {
         var unapplied = Builder();
         unapplied.ComposeForTest<Definition>(root => root.Contribute<List<string>>(target => target.Add("root")));
-        Assert.Contains("TRP008", Assert.Throws<CompositionException>(() => unapplied.FinalizeComposition()).Message);
+        Assert.Contains("TRP008", Assert.Throws<CompositionException>(() => unapplied.Build()).Message);
         var builder = Builder();
         builder.ComposeForTest<Definition>(root => { root.Requires<Adapter>(); root.Contribute<List<string>>(target => target.Add("root")); });
         var target = new List<string>(); builder.ApplyContributions(target);
         Assert.Equal(["adapter", "root"], target);
-        Assert.All(builder.FinalizeComposition().Contributions, c => Assert.True(c.Applied));
+        using var host = builder.Build();
+        Assert.All(host.Services.GetRequiredService<IComposition>().Manifest.Contributions, c => Assert.True(c.Applied));
     }
     [Fact]
     public async Task WebRootRunsLastInEachStageAndOwnsItsEndpoints()
@@ -67,7 +65,6 @@ public sealed class TestCompositionTests
             root.Use("auth", _ => Applied.Add("root:auth"));
             root.Endpoints(endpoints => endpoints.MapGet("/root", () => "root"));
         }, "slice");
-        builder.FinalizeComposition();
         await using var application = builder.Build();
         application.UseComposition();
         Assert.Equal(["ingress:routing", "ingress:auth", "root:auth"], Applied);
@@ -85,7 +82,6 @@ public sealed class TestCompositionTests
             root.Endpoints(endpoints => endpoints.MapGet("/", () => "ok"));
         }, ["routing"], "slice");
         Assert.Equal(Root, Assert.Single(manifest.Contributors).Owner);
-        builder.FinalizeComposition();
         using var application = builder.Build();
         application.UseComposition();
         Assert.Equal(["root:routing"], Applied);
@@ -136,12 +132,23 @@ public sealed class TestCompositionTests
         var builder = Builder(); builder.ComposeForTest<Definition>(_ => { });
         Assert.Contains("TRP016", Assert.Throws<CompositionException>(() => builder.ComposeForTest<Definition>(_ => { })).Message);
     }
+    [Fact]
+    public void TestRootsIgnoreDefinitionRequirementsAndWithinProfileCountsThem()
+    {
+        var slice = Builder().ComposeForTest<SharedDefinition>(root => root.Requires<Store>());
+        Assert.False(slice.Composes<Branch>());
+        Assert.DoesNotContain(slice.Contributors, c => c.Owner.Kind == OwnerKind.Definition);
+        var within = Builder().ComposeForTest<SharedDefinition>(root => root.Requires<Branch>(), withinProfile: "edge");
+        Assert.True(within.Composes<Branch>());
+    }
+    public sealed class SharedDefinition : ICompositionDefinition
+    { public void Define(ICompositionDefinitionBuilder d) => d.Requires<Branch>().Profile("edge", p => p.Role<Edge>()).Stages("routing", "auth"); }
     public sealed class Definition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<Unselected>().Rule(new CountingRule()); }
     public sealed class WebDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) { d.Role<Unselected>(); d.Stages("routing", "auth"); } }
     public sealed class ProfileDefinition : ICompositionDefinition
-    { public void Define(ICompositionDefinitionBuilder d) => d.Role<Edge>().Role<Unselected>().Profile("edge", "edge").Profile("all", "edge", "unselected").Stages("routing", "auth"); }
+    { public void Define(ICompositionDefinitionBuilder d) => d.Profile("edge", p => p.Role<Edge>()).Profile("all", p => p.Role<Edge>().Role<Unselected>()).Stages("routing", "auth"); }
     private sealed class CountingRule : ICompositionRule
     {
         internal static int Calls;

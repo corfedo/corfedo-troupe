@@ -1,4 +1,3 @@
-using Corfedo.Troupe;
 using Corfedo.Troupe.AspNetCore;
 using Corfedo.Troupe.Examples.Messaging;
 using JasperFx;
@@ -28,7 +27,6 @@ if (args is ["durable", "resources", "setup", .. var provisioningArgs])
 var builder = args is ["durable", .. var servingArgs]
     ? MessagingApplication.CreateDurableBuilder(servingArgs)
     : MessagingApplication.CreateBuilder(args);
-builder.FinalizeComposition();
 await using var application = builder.Build();
 application.UseComposition();
 await application.RunAsync();

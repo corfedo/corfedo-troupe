@@ -35,12 +35,21 @@ public interface ICompositionDefinition
 /// <summary>Records roles, exact profiles and application composition rules.</summary>
 public interface ICompositionDefinitionBuilder
 {
-    /// <summary>Registers a stateless role definition with an explicit unique name.</summary>
+    /// <summary>Requires a component in every composition of this definition; without roles, these requirements are the application.</summary>
+    ICompositionDefinitionBuilder Requires<T>() where T : IComponent, new();
+    /// <summary>Registers a stateless role for selection by Roles configuration; profiles register the roles they name.</summary>
     ICompositionDefinitionBuilder Role<T>() where T : IRole, new();
-    /// <summary>Declares an exact supported role set. Declared profiles are always strict.</summary>
-    ICompositionDefinitionBuilder Profile(string name, params string[] roles);
+    /// <summary>Declares an exact supported role set and registers its roles. Declared profiles are always strict.</summary>
+    ICompositionDefinitionBuilder Profile(string name, Action<IProfileBuilder> roles);
     /// <summary>Adds an application diagnostic rule.</summary>
     ICompositionDefinitionBuilder Rule(ICompositionRule rule);
+}
+
+/// <summary>Names the roles of one serving profile.</summary>
+public interface IProfileBuilder
+{
+    /// <summary>Adds a role, named by its <see cref="RoleAttribute"/>, to the profile.</summary>
+    IProfileBuilder Role<T>() where T : IRole, new();
 }
 
 /// <summary>Records contributions. Callbacks execute only after the selected graph is valid and ordered.</summary>

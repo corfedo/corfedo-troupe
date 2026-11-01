@@ -16,9 +16,10 @@ internal sealed class CompositionLifecycle(CompositionSession session, IServiceP
     public Task StartedAsync(CancellationToken cancellationToken)
     {
         session.CompleteStart();
-        logger.LogInformation("Troupe profile: {Profile}; roles: {Roles}; components: {Components}", session.Runtime.Profile?.Name ?? "(none)",
-            string.Join(", ", session.Runtime.Roles.Select(r => r.Name)),
-            string.Join(", ", session.Runtime.Manifest.Contributors.Where(n => n.Owner.Kind == OwnerKind.Component).Select(n => n.Owner.Name)));
+        var components = string.Join(", ", session.Runtime.Manifest.Contributors.Where(n => n.Owner.Kind == OwnerKind.Component).Select(n => n.Owner.Name));
+        if (session.Runtime.Roles.Count == 0) logger.LogInformation("Troupe components: {Components}", components);
+        else logger.LogInformation("Troupe profile: {Profile}; roles: {Roles}; components: {Components}", session.Runtime.Profile?.Name ?? "(none)",
+            string.Join(", ", session.Runtime.Roles.Select(r => r.Name)), components);
         return Task.CompletedTask;
     }
     public Task StoppingAsync(CancellationToken cancellationToken) => Task.CompletedTask;

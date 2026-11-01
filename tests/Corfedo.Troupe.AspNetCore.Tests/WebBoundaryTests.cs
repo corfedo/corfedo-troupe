@@ -21,10 +21,9 @@ public sealed class WebBoundaryTests
         A.Declare = r => r.Endpoints(e => e.MapGet("/", () => "ok"));
         IHostApplicationBuilder builder = webHost ? Builder("a") :
             Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
-        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
         builder.Configuration["Roles"] = "a";
         builder.Configuration["Kestrel:Endpoints:public:Url"] = "http://127.0.0.1:0";
-        builder.Compose<Definition>(); builder.FinalizeComposition();
+        builder.AddTroupe<Definition>();
         var host = builder is WebApplicationBuilder web ? web.Build() : ((HostApplicationBuilder)builder).Build();
         try
         {
@@ -39,7 +38,7 @@ public sealed class WebBoundaryTests
     {
         var builder = Builder("plain"); builder.Configuration.Sources.Clear(); builder.Configuration.AddInMemoryCollection();
         builder.Configuration["Roles"] = "plain";
-        builder.Compose<StageOnlyDefinition>(); builder.FinalizeComposition(); await using var app = builder.Build();
+        builder.AddTroupe<StageOnlyDefinition>(); await using var app = builder.Build();
         var runtime = app.Services.GetRequiredService<IComposition>();
         Assert.Equal(["routing", "ingress"], runtime.AspNetCore().Stages);
         app.UseComposition(); Assert.Equal(["routing", "ingress"], runtime.AspNetCore().Stages);
@@ -48,16 +47,16 @@ public sealed class WebBoundaryTests
     public void StageDeclarationInstallsListenerCoverageBeforeAnyPipelineOrBuild()
     {
         var builder = Builder("plain");
-        var failure = Assert.Throws<CompositionException>(() => builder.Compose<StageOnlyDefinition>());
+        var failure = Assert.Throws<CompositionException>(() => builder.AddTroupe<StageOnlyDefinition>());
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP103" && d.Message.Contains("not requested"));
     }
     [Fact]
     public async Task MissingRootRoutingIncludesTheDiagnosticInItsManifest()
     {
-        var builder = Builder("a"); builder.Compose<NoRoutingDefinition>(); builder.FinalizeComposition(); await using var app = builder.Build();
+        var builder = Builder("a"); builder.AddTroupe<NoRoutingDefinition>(); await using var app = builder.Build();
         var failure = Assert.Throws<CompositionException>(() => app.UseComposition());
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP100" && d.Message.Contains("UseRouting"));
-        Assert.Same(failure, Assert.Throws<CompositionException>(() => builder.FinalizeComposition()));
+        Assert.Same(failure, Assert.Throws<CompositionException>(() => app.UseComposition()));
     }
     [Theory]
     [InlineData(false)]
@@ -70,7 +69,7 @@ public sealed class WebBoundaryTests
             if (endpoint) r.Endpoints(_ => throw original);
             else r.Use("ingress", _ => throw original);
         };
-        var builder = Builder("a"); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build();
+        var builder = Builder("a"); builder.AddTroupe<Definition>(); await using var app = builder.Build();
         var failure = Assert.Throws<CompositionException>(() => app.UseComposition());
         Assert.Same(original, failure.InnerException);
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP017" && d.Owners.Single().Name == "a");
@@ -91,14 +90,17 @@ public sealed class WebBoundaryTests
                 case "KestrelEndpoint": r.KestrelEndpoint("other"); break;
             }
         });
-        var failure = Assert.Throws<CompositionException>(() => Builder("a").Compose<Definition>());
+        var failure = Assert.Throws<CompositionException>(() => Builder("a").AddTroupe<Definition>());
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP015" && d.Owners.Single().Name == "a");
     }
     [Fact]
-    public async Task PipelineApplicationRequiresFinalization()
+    public async Task PipelineApplicationFailsWhenAnotherProviderFactoryBuiltTheHost()
     {
         var calls = 0; A.Declare = r => r.Endpoints(e => { calls++; e.MapGet("/", () => "ok"); });
-        var builder = Builder("a"); builder.Compose<Definition>(); await using var app = builder.Build();
+        var builder = Builder("a");
+        // Host.UseDefaultServiceProvider replaces Troupe's factory even when it is called before AddTroupe.
+        builder.Host.UseDefaultServiceProvider(_ => { });
+        builder.AddTroupe<Definition>(); await using var app = builder.Build();
         var failure = Assert.Throws<CompositionException>(() => app.UseComposition());
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP018"); Assert.Equal(0, calls);
     }
@@ -106,7 +108,7 @@ public sealed class WebBoundaryTests
     public async Task PipelineApplicationCannotBeRepeated()
     {
         var calls = 0; A.Declare = r => r.Endpoints(e => { calls++; e.MapGet("/", () => "ok"); });
-        var builder = Builder("a"); builder.Compose<Definition>(); builder.FinalizeComposition(); await using var app = builder.Build(); app.UseComposition();
+        var builder = Builder("a"); builder.AddTroupe<Definition>(); await using var app = builder.Build(); app.UseComposition();
         var failure = Assert.Throws<CompositionException>(() => app.UseComposition());
         Assert.Contains(failure.Manifest!.Diagnostics, d => d.Code == "TRP016"); Assert.Equal(1, calls);
     }
@@ -136,8 +138,8 @@ public sealed class WebBoundaryTests
             r.Use("ingress", _ => GC.KeepAlive(marker));
             r.Endpoints(e => { GC.KeepAlive(marker); e.MapGet("/", () => "ok"); });
         };
-        var builder = Builder("a"); builder.Compose<Definition>(); A.Declare = _ => { };
-        builder.FinalizeComposition(); var app = builder.Build(); app.UseComposition(); return app;
+        var builder = Builder("a"); builder.AddTroupe<Definition>(); A.Declare = _ => { };
+        var app = builder.Build(); app.UseComposition(); return app;
     }
     public sealed class StageOnlyDefinition : ICompositionDefinition
     {

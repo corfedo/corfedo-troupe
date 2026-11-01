@@ -6,10 +6,15 @@ namespace Corfedo.Troupe;
 public static class CompositionExtensions
 {
     /// <summary>
-    /// Reads the selection (Profile configuration when the definition declares profiles, otherwise Roles), resolves the selected graph, and
-    /// executes recorded service callbacks.
+    /// Reads the selection (Profile configuration when the definition declares profiles, otherwise Roles), resolves the selected graph,
+    /// executes recorded service callbacks, and installs the service provider factory that finalizes the composition in Build.
     /// </summary>
-    public static CompositionManifest Compose<T>(this IHostApplicationBuilder builder) where T : ICompositionDefinition, new() =>
+    /// <remarks>
+    /// Build captures the registrations adapters made after this call, rejects contributions no adapter applied (TRP008), and builds the
+    /// default provider with ValidateOnBuild and ValidateScopes. Another ConfigureContainer, Host.UseServiceProviderFactory or
+    /// Host.UseDefaultServiceProvider call replaces that factory, and pipeline application and startup then fail with TRP018.
+    /// </remarks>
+    public static CompositionManifest AddTroupe<T>(this IHostApplicationBuilder builder) where T : ICompositionDefinition, new() =>
         Compose(builder, () =>
         {
             var definition = DefinitionBuilder.Create<T>();
@@ -23,12 +28,13 @@ public static class CompositionExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
         if (CompositionSession.TryGet(builder) is { } existing)
-            throw existing.Fail(DiagnosticCodes.InvalidPhase, "A builder can compose only once.", ServiceLedger.Application);
+            throw existing.Fail(DiagnosticCodes.InvalidPhase, "A builder runs AddTroupe or ComposeForTest only once.", ServiceLedger.Application);
         var (definition, profile, roles, nodes) = resolve();
         try
         {
             var session = new CompositionSession(builder, definition, profile, roles, nodes);
             builder.Properties.Add(typeof(CompositionSession), session);
+            builder.ConfigureContainer(new CompositionProviderFactory(session));
             var initialize = definition.IntegrationFactory ?? nodes.Select(n => n.IntegrationFactory).FirstOrDefault(f => f is not null);
             if (initialize is not null) session.AttachIntegration(initialize(session));
             session.ValidateDeclarations();
@@ -51,7 +57,4 @@ public static class CompositionExtensions
         ArgumentNullException.ThrowIfNull(target);
         CompositionSession.Get(builder).ApplyContributions(target);
     }
-    /// <summary>Captures adapter registrations, rejects unconsumed contributions, and validates before Build.</summary>
-    /// <remarks>Required after adapters and before Build. Pipeline application and startup revalidate the finalized composition and fail with TRP018 when this call was skipped. The application keeps ValidateOnBuild and ValidateScopes enabled.</remarks>
-    public static CompositionManifest FinalizeComposition(this IHostApplicationBuilder builder) => CompositionSession.Get(builder).FinalizeComposition();
 }

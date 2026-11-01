@@ -7,7 +7,7 @@ namespace Corfedo.Troupe.Testing;
 /// <remarks>
 /// The root records <see cref="OwnerKind.Test"/> named <c>test:&lt;name&gt;</c> and declares like a role: Requires, Services, Options,
 /// Contribute, Use and Endpoints. It depends on every component it requires, so it runs last in each stage and registers after
-/// them. The manifest has no profile and no roles. Composition does not finalize: apply adapters, then call FinalizeComposition.
+/// them. The manifest has no profile and no roles. Build finalizes the composition after the application's adapters, as for AddTroupe.
 /// </remarks>
 public static class TestComposition
 {
@@ -35,6 +35,15 @@ public static class TestComposition
         ArgumentNullException.ThrowIfNull(root); ArgumentNullException.ThrowIfNull(stages); ArgumentException.ThrowIfNullOrWhiteSpace(name);
         var recorded = (string[])stages.Clone();
         return Compose(builder, () => DefinitionBuilder.Create(null, d => d.Stages(recorded)), root, name, null);
+    }
+
+    /// <summary>Finalizes the composition before Build, for a test that inspects the manifest of a host it does not build.</summary>
+    /// <remarks>Captures the registrations adapters made and rejects contributions no adapter applied (TRP008), as Build does. Contributions
+    /// cannot be applied afterwards; Build finalizes again and captures registrations added after this call.</remarks>
+    public static CompositionManifest FinalizeForTest(this IHostApplicationBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return CompositionSession.Get(builder).FinalizeComposition();
     }
 
     private static CompositionManifest Compose(IHostApplicationBuilder builder, Func<DefinitionBuilder> define,

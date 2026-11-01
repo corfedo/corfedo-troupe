@@ -5,8 +5,8 @@ namespace Corfedo.Troupe.Testing;
 
 /// <summary>Adds and replaces services on a composed builder with test ownership recorded in the manifest.</summary>
 /// <remarks>
-/// Both operations record <see cref="OwnerKind.Test"/> named <c>test:&lt;name&gt;</c>, run after Compose and before or after
-/// FinalizeComposition, and revalidate the composition. Pipeline application and startup revalidate it again.
+/// Both operations record <see cref="OwnerKind.Test"/> named <c>test:&lt;name&gt;</c>, run after composition and before Build,
+/// and revalidate the composition. Pipeline application and startup revalidate it again.
 /// </remarks>
 public static class TestOverrides
 {

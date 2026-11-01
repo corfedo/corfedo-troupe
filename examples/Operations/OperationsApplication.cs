@@ -9,8 +9,7 @@ public static class OperationsApplication
             Args = args, ContentRootPath = contentRootPath ?? AppContext.BaseDirectory,
             ApplicationName = typeof(OperationsApplication).Assembly.GetName().Name
         });
-        builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
-        builder.Compose<OperationsComposition>();
+        builder.AddTroupe<OperationsComposition>();
         return builder;
     }
 }

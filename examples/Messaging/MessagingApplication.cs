@@ -15,8 +15,7 @@ public static class MessagingApplication
             Args = args, ContentRootPath = contentRootPath ?? AppContext.BaseDirectory,
             ApplicationName = typeof(MessagingApplication).Assembly.GetName().Name
         });
-        builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
-        builder.Compose<MessagingComposition>();
+        builder.AddTroupe<MessagingComposition>();
         ConfigureWolverine(builder, TypeLoadMode.Static);
         return builder;
     }
@@ -28,8 +27,7 @@ public static class MessagingApplication
             Args = args, ContentRootPath = contentRootPath ?? AppContext.BaseDirectory,
             ApplicationName = typeof(MessagingApplication).Assembly.GetName().Name
         });
-        builder.Host.UseDefaultServiceProvider(options => { options.ValidateOnBuild = true; options.ValidateScopes = true; });
-        builder.Compose<DurableMessagingComposition>();
+        builder.AddTroupe<DurableMessagingComposition>();
         ConfigureWolverine(builder, TypeLoadMode.Static, durable: true);
         return builder;
     }
@@ -38,10 +36,8 @@ public static class MessagingApplication
     {
         var builder = Host.CreateApplicationBuilder(args);
         builder.Configuration["Profile"] = "provision";
-        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
-        builder.Compose<DurableProvisioningComposition>();
+        builder.AddTroupe<DurableProvisioningComposition>();
         ConfigureWolverine(builder, TypeLoadMode.Static, durable: true);
-        builder.FinalizeComposition();
         return builder;
     }
 
@@ -55,10 +51,8 @@ public static class MessagingApplication
         builder.Configuration["Roles"] = "generate";
         builder.Services.Configure<JasperFxOptions>(options =>
             options.GeneratedCodeOutputPath = Path.Combine(contentRootPath, "Internal", "Generated"));
-        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }));
-        builder.Compose<HandlerGenerationComposition>();
+        builder.AddTroupe<HandlerGenerationComposition>();
         ConfigureWolverine(builder, TypeLoadMode.Dynamic);
-        builder.FinalizeComposition();
         return builder;
     }
 

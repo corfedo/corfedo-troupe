@@ -241,12 +241,14 @@ internal sealed class CompositionSession
     }
     private void EnsureUsable() { if (failure is not null) throw failure; }
 
-    // Pipeline application and startup revalidate a finalized composition; they do not finalize it themselves.
-    private void RequireFinalized()
+    // Build finalizes through the installed provider factory; pipeline application, startup and verification revalidate.
+    internal void RequireFinalized()
     {
         EnsureUsable();
         if (Phase == CompositionPhase.Configuring) throw Fail(DiagnosticCodes.Unfinalized,
-            "Composition is not finalized. Call FinalizeComposition on the builder before Build.", ServiceLedger.Application);
+            "Troupe's service provider factory did not build this host. Remove ConfigureContainer, Host.UseServiceProviderFactory " +
+            "and Host.UseDefaultServiceProvider calls: AddTroupe installs the factory and enables ValidateOnBuild and ValidateScopes.",
+            ServiceLedger.Application);
     }
 
     internal CompositionManifest ValidateServingComposition()

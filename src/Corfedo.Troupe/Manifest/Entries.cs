@@ -13,6 +13,8 @@ public enum OwnerKind
 {
     /// <summary>Baseline host and application adapter registrations.</summary>
     Application,
+    /// <summary>The composition definition, owner of the components it requires directly.</summary>
+    Definition,
     /// <summary>A selected role.</summary>
     Role,
     /// <summary>A shared component.</summary>
@@ -120,14 +122,14 @@ public sealed class CompositionManifest
     /// <summary>Tests whether the component is composed in this snapshot.</summary>
     public bool Composes<TComponent>() where TComponent : IComponent =>
         Contributors.Any(c => c.Owner.Kind == OwnerKind.Component && c.Owner.Type == typeof(TComponent));
-    /// <summary>Gets the shortest requirement chain from a role, or the test root, to the component.</summary>
-    /// <remarks>The chain starts at the role and ends at the component; it is empty when the component is not composed. Ties follow ordinal names.</remarks>
+    /// <summary>Gets the shortest requirement chain from the definition, a role or the test root to the component.</summary>
+    /// <remarks>The chain starts at the definition, role or test root and ends at the component; it is empty when the component is not composed. Ties follow ordinal names.</remarks>
     public IReadOnlyList<CompositionOwner> PathTo<TComponent>() where TComponent : IComponent
     {
         var entries = Contributors.ToDictionary(c => c.Owner);
         var previous = new Dictionary<CompositionOwner, CompositionOwner?>();
         var pending = new Queue<CompositionOwner>();
-        foreach (var start in Contributors.Select(c => c.Owner).Where(o => o.Kind is OwnerKind.Role or OwnerKind.Test).OrderBy(o => o.Name, StringComparer.Ordinal))
+        foreach (var start in Contributors.Select(c => c.Owner).Where(o => o.Kind is OwnerKind.Definition or OwnerKind.Role or OwnerKind.Test).OrderBy(o => o.Name, StringComparer.Ordinal))
         { previous.Add(start, null); pending.Enqueue(start); }
         while (pending.TryDequeue(out var current))
         {

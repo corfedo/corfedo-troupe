@@ -8,20 +8,19 @@ namespace Corfedo.Troupe.Examples.Worker;
 
 public sealed class WorkerComposition : ICompositionDefinition
 {
-    public void Define(ICompositionDefinitionBuilder definition) => definition.Role<WorkerRole>().Profile("worker", "worker");
+    public void Define(ICompositionDefinitionBuilder definition) => definition.Requires<HeartbeatComponent>();
 }
 
-[Role("worker")]
-public sealed class WorkerRole : IRole
+public sealed class HeartbeatComponent : IComponent
 {
-    public void Compose(IRoleBuilder role)
+    public void Compose(IComponentBuilder component)
     {
-        role.Requires<WorkerSettings>();
-        role.Services(services => services.AddHostedService<Heartbeat>());
+        component.Requires<WorkerSettingsComponent>();
+        component.Services(services => services.AddHostedService<Heartbeat>());
     }
 }
 
-public sealed class WorkerSettings : IComponent
+public sealed class WorkerSettingsComponent : IComponent
 {
     public void Compose(IComponentBuilder component) => component.Options<HeartbeatOptions, HeartbeatValidator>("Worker");
 }

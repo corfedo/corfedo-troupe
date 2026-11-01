@@ -32,7 +32,7 @@ the same caller policy applies to local and remote calls.
 
 `ApiCalls` declares each destination with `Calls.Declare`. For each owner it records
 `ReadsConfigurationUnless<THost>` for `Roles:Remote:<owner>`, `Workload:Identities:api` and
-`Workload:Root`, so a process missing an address fails during Compose with TRP005. It also registers a
+`Workload:Root`, so a process missing an address fails in AddTroupe with TRP005. It also registers a
 keyed `Destination<THost>`, which `CallsRule` reads from the manifest: OPS001 reports an owner the caller
 may call but does not declare, OPS002 a declared owner that exposes nothing to it. The gateway chooses each
 route once with `IComposition.Includes<THost>()`.
