@@ -8,14 +8,6 @@ misconfigured host fails at startup with a diagnostic code that names the owners
 the components of each process, so one executable runs combined or split across processes from the same
 declarations.
 
-The packages are published to GitHub Packages, which requires a GitHub token with `read:packages` to restore. Add
-the source once:
-
-```sh
-dotnet nuget add source https://nuget.pkg.github.com/corfedo/index.json --name corfedo \
-  --username <github-user> --password <token-with-read:packages>
-```
-
 ```sh
 dotnet add package Corfedo.Troupe
 dotnet add package Corfedo.Troupe.AspNetCore   # middleware stages, endpoints and Kestrel endpoints

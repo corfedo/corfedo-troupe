@@ -12,7 +12,7 @@
     <PackageReadmeFile>package-readme.md</PackageReadmeFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <RepositoryUrl>https://github.com/corfedo/corfedo-troupe</RepositoryUrl>
     <PackageProjectUrl>https://github.com/corfedo/corfedo-troupe</PackageProjectUrl>
   </PropertyGroup>

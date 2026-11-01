@@ -11,6 +11,7 @@ concurrency:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 jobs:
   release:
@@ -64,6 +65,20 @@ jobs:
         run: dotnet nuget push "artifacts/*.nupkg" --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" --api-key "$GITHUB_TOKEN" --no-symbols --skip-duplicate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Trusted Publishing: the job's OIDC token is exchanged for an API key valid for one hour, so it is requested
+      # just before the push. The nuget.org policy names this repository and release.yml.
+      - name: Log in to nuget.org
+        id: nuget
+        uses: NuGet/login@v1
+        with:
+          user: corfedo-ww
+
+      # Pushing a .nupkg uploads the .snupkg next to it to the symbol server.
+      - name: Push to nuget.org
+        run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
