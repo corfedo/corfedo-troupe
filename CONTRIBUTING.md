@@ -15,4 +15,8 @@ commits its `packages.lock.json`. After changing a package reference or version,
 
 The package version is `<Version>` in `Directory.Build.props`. Releases are built from `v<Version>` tags.
 
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) as described in the
+[organization contributing guide](https://github.com/corfedo/.github/blob/main/CONTRIBUTING.md#commit-messages), for
+example `feat: add a profile option`. Release notes are generated from them.
+
 Contributions are licensed under Apache-2.0, the license of this repository.
