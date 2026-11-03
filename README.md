@@ -202,3 +202,8 @@ third-party DI containers are not supported yet. Contributions are welcome throu
 
 Troupe is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for the reservation of Corfedo names, logos and
 brand assets.
+
+## Part of Corfedo
+
+The [Corfedo](https://github.com/corfedo) platform composes its roles with Troupe. Corfedo provides code search and
+dependency security across all your repositories, for developers and AI coding agents.
