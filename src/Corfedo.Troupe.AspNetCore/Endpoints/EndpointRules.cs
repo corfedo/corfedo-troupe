@@ -58,6 +58,10 @@ internal static class EndpointRules
         // Exact host sets can be proven disjoint. Wildcard policies remain candidate findings.
         if (ah is { Count: > 0 } && bh is { Count: > 0 } && ah.All(h => !h.Contains('*')) && bh.All(h => !h.Contains('*')) &&
             !ah.Intersect(bh, StringComparer.OrdinalIgnoreCase).Any()) return false;
+        // The content-encoding matcher policy chooses between variants of one route that differ in encoding; an endpoint
+        // without the metadata is the identity variant.
+        if (!string.Equals(a.Metadata.GetMetadata<ContentEncodingMetadata>()?.Value, b.Metadata.GetMetadata<ContentEncodingMetadata>()?.Value,
+                StringComparison.OrdinalIgnoreCase)) return false;
         var ap = a.RoutePattern.PathSegments; var bp = b.RoutePattern.PathSegments;
         if (ap.Count != bp.Count) return false;
         for (var i = 0; i < ap.Count; i++)

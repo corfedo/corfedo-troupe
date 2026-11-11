@@ -144,6 +144,25 @@ public sealed class WebTests
         Assert.Contains(overlaps, m => m.Contains("/Docs/{x}") && m.Contains("/docs/{y}"));
     }
     [Fact]
+    public async Task ContentEncodingVariantsAreNegotiatedAndNotReported()
+    {
+        A.Declare = r => r.Endpoints(e =>
+        {
+            e.MapGet("/asset.js", () => "identity");
+            e.MapGet("/asset.js", () => "gzip").WithMetadata(new ContentEncodingMetadata("gzip", 1.0));
+            e.MapGet("/twice.js", () => "a").WithMetadata(new ContentEncodingMetadata("br", 1.0));
+        });
+        B.Declare = r => r.Endpoints(e => e.MapGet("/twice.js", () => "b").WithMetadata(new ContentEncodingMetadata("BR", 1.0)));
+        var builder = Builder(); builder.AddTroupe<Definition>(); await using var app = builder.Build(); app.UseComposition();
+        var overlap = Assert.Single(app.Services.GetRequiredService<IComposition>().Manifest.Diagnostics, d => d.Code == "TRP102");
+        Assert.Contains("/twice.js", overlap.Message);
+        await app.StartAsync(TestContext.Current.CancellationToken); using var client = Client(app);
+        Assert.Equal("identity", await client.GetStringAsync("/asset.js", TestContext.Current.CancellationToken));
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/asset.js"); request.Headers.AcceptEncoding.ParseAdd("gzip");
+        using var gzip = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal("gzip", await gzip.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+    [Fact]
     public async Task DisjointConstraintsMethodsAndHostsRemainUsable()
     {
         A.Declare = r => r.Endpoints(e =>

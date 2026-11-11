@@ -43,7 +43,7 @@ diagnostics are written to the description instead of thrown.
 | --- | --- | --- |
 | TRP100 | Undeclared or duplicate stage, or endpoints without a `UseRouting` stage | Declare the stage and place `UseRouting` in it |
 | TRP101 | Two endpoints share a name | Rename one |
-| TRP102 | Advisory: overlapping routes from different owners | Check the routes are intended |
+| TRP102 | Advisory: overlapping routes from different owners; routes that differ in HTTP method, exact host or content encoding do not overlap | Check the routes are intended |
 | TRP103 | A requested Kestrel endpoint is not configured, or a configured one is not requested | Match `Kestrel:Endpoints` to the profile |
 | TRP104 | A second callback owner for a Kestrel endpoint | Configure the endpoint in one component |
 | TRP105 | Recorded middleware or endpoints were never applied | Call `app.UseComposition()` |
