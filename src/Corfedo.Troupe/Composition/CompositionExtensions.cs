@@ -39,6 +39,7 @@ public static class CompositionExtensions
             var initialize = definition.IntegrationFactory ?? nodes.Select(n => n.IntegrationFactory).FirstOrDefault(f => f is not null);
             if (initialize is not null) session.AttachIntegration(initialize(session));
             session.ValidateDeclarations();
+            foreach (var declaration in definition.Declarations) session.Execute(definition.Owner, declaration);
             foreach (var node in nodes)
                 foreach (var action in node.TakeActions()) session.Execute(node.Owner, action);
             session.RegisterFrameworkServices(builder.Services);

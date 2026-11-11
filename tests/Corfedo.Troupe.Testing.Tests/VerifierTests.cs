@@ -281,6 +281,13 @@ public sealed class VerifierTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => CompositionVerifier.VerifyProfilesAsync<ComponentsDefinition>(
             _ => Builder(), cancellationToken: TestContext.Current.CancellationToken));
     }
+    [Fact]
+    public async Task InvalidDefinitionIsReturnedAsAVerificationFailure()
+    {
+        var result = await CompositionVerifier.VerifyAsync<ThrowingDefinition>(() => Builder(), cancellationToken: TestContext.Current.CancellationToken);
+        Assert.False(result.Succeeded);
+        Assert.Single(result.Failures);
+    }
     private static HostApplicationBuilder Builder()
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
@@ -289,6 +296,8 @@ public sealed class VerifierTests
     }
     public sealed class ComponentsDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Requires<Remote>(); }
+    public sealed class ThrowingDefinition : ICompositionDefinition
+    { public void Define(ICompositionDefinitionBuilder d) => throw new InvalidOperationException("definition failed"); }
     public sealed class RuleState { public bool Throw; }
     public sealed class RuleDefinition : ICompositionDefinition
     {

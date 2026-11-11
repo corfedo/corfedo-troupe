@@ -10,6 +10,11 @@ internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
     internal readonly List<ICompositionRule> Rules = [];
     // Each entry adds one definition-level requirement to the definition's root contributor.
     internal readonly List<Action<ContributorBuilder>> Requirements = [];
+    // Definition-level declarations of the companion packages; each runs once in every composition of the definition, test
+    // roots included, before the contributors' actions.
+    internal readonly List<Action<CompositionSession, CompositionOwner>> Declarations = [];
+    internal CompositionOwner Owner => new(OwnerKind.Definition, DefinitionType?.FullName ?? "definition", DefinitionType);
+    internal void Declare(Action<CompositionSession, CompositionOwner> declaration) { EnsureOpen(); Declarations.Add(declaration); }
     private bool closed;
     internal Func<CompositionSession, ICompositionIntegration>? IntegrationFactory { get; private set; }
     internal void SetIntegration(Func<CompositionSession, ICompositionIntegration> factory)

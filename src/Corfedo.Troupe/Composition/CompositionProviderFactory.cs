@@ -9,6 +9,7 @@ internal sealed class CompositionProviderFactory(CompositionSession session) : I
     public IServiceCollection CreateBuilder(IServiceCollection services)
     {
         session.FinalizeComposition();
+        session.PrepareIntegration(services);
         return services;
     }
 

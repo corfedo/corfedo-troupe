@@ -8,9 +8,7 @@ internal static class Graph
         var roots = roleNames.Select(name => definition.Roles[name])
             .Select(role => (new CompositionOwner(OwnerKind.Role, role.Identity.Name, role.Identity.Type), role.Declare));
         if (definition.Requirements.Count == 0) return Resolve(roots);
-        var type = definition.DefinitionType;
-        var owner = new CompositionOwner(OwnerKind.Definition, type?.FullName ?? "definition", type);
-        return Resolve(roots.Prepend((owner, root => { foreach (var require in definition.Requirements) require(root); })));
+        return Resolve(roots.Prepend((definition.Owner, root => { foreach (var require in definition.Requirements) require(root); })));
     }
 
     // Declares each root and its requirement closure, then orders dependencies before dependents with ordinal ready-node ties.

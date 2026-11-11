@@ -25,6 +25,8 @@ public static class CompositionVerifier
         var entries = new List<ProfileVerificationEntry>();
         var failures = new List<ProfileVerificationFailure>();
         await VerifyOneAsync<T>(null, createBuilder, overrides, entries, failures, cancellationToken).ConfigureAwait(false);
+        // A composition that selected roles belongs to a definition with roles; one selection does not show what others serve.
+        if (failures.Count == 0 && entries.Single().Manifest?.Roles.Count == 0) CheckControllerCoverage(entries, failures);
         return new(entries, failures);
     }
 
@@ -51,9 +53,33 @@ public static class CompositionVerifier
             await VerifyOneAsync<T>(profile, () => createBuilder(profile),
                 overrides is null ? null : services => overrides(profile, services), entries, failures, cancellationToken).ConfigureAwait(false);
         }
+        CheckControllerClaims(entries, failures);
+        CheckControllerCoverage(entries, failures);
         return new(entries, failures);
     }
 
+    // Each composition rejects overlapping claims of the contributors it composes; contributors that no profile composes together
+    // are compared here. A failed composition already fails the result.
+    private static void CheckControllerClaims(List<ProfileVerificationEntry> entries, List<ProfileVerificationFailure> failures)
+    {
+        if (failures.Count > 0) return;
+        var overlaps = ComposedControllers.Overlaps(entries.SelectMany(e => e.AspNetManifest?.ControllerClaims ?? [])).ToArray();
+        if (overlaps.Length > 0)
+            failures.Add(new(null, null, new CompositionException(overlaps.Select(o => ComposedControllers.Overlap(o.First, o.Second)).ToArray()), false));
+    }
+    // A controller that some process discovers and no verified process maps has no route. Without the definition's controller
+    // claims, a process records neither list. A failed composition has no reliable inventory and already fails the result.
+    private static void CheckControllerCoverage(List<ProfileVerificationEntry> entries, List<ProfileVerificationFailure> failures)
+    {
+        if (failures.Count > 0) return;
+        var served = entries.SelectMany(e => e.AspNetManifest?.ServedControllers ?? []).ToHashSet();
+        var unserved = entries.SelectMany(e => e.AspNetManifest?.UnservedControllers ?? []).Where(t => !served.Contains(t)).Distinct()
+            .Select(t => t.FullName).Order(StringComparer.Ordinal).ToArray();
+        if (unserved.Length > 0)
+            failures.Add(new(null, null, new CompositionException([new("TRP108", DiagnosticSeverity.Error,
+                $"No verified composition maps actions of these controllers; claim them in a component of a process that maps controllers: {string.Join(", ", unserved)}.",
+                Array.AsReadOnly(new[] { new CompositionOwner(OwnerKind.Application, "application") }))]), false));
+    }
     // A null profile verifies whatever the builder's configuration selects; a declared profile is set and checked.
     private static async Task VerifyOneAsync<T>(ProfileIdentity? profile, Func<IHostApplicationBuilder> createBuilder,
         Action<IServiceCollection>? overrides, List<ProfileVerificationEntry> entries, List<ProfileVerificationFailure> failures,

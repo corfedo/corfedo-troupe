@@ -174,6 +174,11 @@ internal sealed class CompositionSession
         if (Phase == CompositionPhase.Configuring) Phase = CompositionPhase.Finalized;
         return manifest;
     }
+    internal void PrepareIntegration(IServiceCollection services)
+    {
+        RequirePhase(CompositionPhase.Finalized);
+        if (integration is { } current) Invoke(ServiceLedger.Application, "integration", () => current.Prepare(services));
+    }
     internal void BeginPipeline()
     {
         RequireFinalized();
