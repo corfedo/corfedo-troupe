@@ -14,12 +14,14 @@ internal static class CoreRules
                     ? $"{read.Owner.Name}: section {read.Section} is required because {component.FullName ?? component.Name} is not composed in this process."
                     : $"{read.Owner.Name}: required section {read.Section} is missing.", [read.Owner]);
         var active = manifest.Services.Where(s => s.Active).ToArray();
+        var consumers = new Lazy<ConsumerIndex>(() => new(active));
         foreach (var slot in active.GroupBy(s => (s.ServiceType, s.Key)))
         {
             var owners = slot.Select(s => s.Owner).Distinct().ToArray();
             if (session.IsExclusive(slot.Key.ServiceType, slot.Key.Key) && slot.Count() > 1)
                 yield return Diagnostic("TRP004", DiagnosticSeverity.Error, $"Exclusive service slot {slot.Key} has {slot.Count()} registrations.", owners);
-            else if (owners.Length > 1 && !session.AllowsMultiple(slot.Key.ServiceType) && !Excluded(slot.Key.ServiceType))
+            else if (owners.Length > 1 && !session.AllowsMultiple(slot.Key.ServiceType) && !Excluded(slot.Key.ServiceType) &&
+                     !consumers.Value.OnlyEnumerable(slot.Key.ServiceType))
                 yield return Diagnostic("TRP001", DiagnosticSeverity.Advisory, $"Service slot {slot.Key} repeats across {string.Join(", ", owners.Select(o => o.Name))}.", owners);
         }
         var hosted = active.Where(s => s.ServiceType == typeof(IHostedService) && s.Key is null).ToArray();
@@ -36,6 +38,22 @@ internal static class CoreRules
             type.GetGenericTypeDefinition() == typeof(IPostConfigureOptions<>) ||
             type.GetGenericTypeDefinition() == typeof(IValidateOptions<>) ||
             type.GetGenericTypeDefinition() == typeof(IOptionsChangeTokenSource<>));
+    }
+    // How the public constructors of active implementation types take each service type. A repeated slot whose visible
+    // consumers all take IEnumerable<T> is an extension point; a slot with a single consumer or no visible consumer stays reported.
+    // Factory registrations, GetService calls and handler parameters are not visible.
+    private sealed class ConsumerIndex
+    {
+        private readonly HashSet<Type> single = [];
+        private readonly HashSet<Type> enumerable = [];
+        internal ConsumerIndex(IEnumerable<ServiceRegistration> active)
+        {
+            foreach (var type in active.Select(s => s.ImplementationType).OfType<Type>().Distinct())
+                foreach (var parameter in type.GetConstructors().SelectMany(c => c.GetParameters()).Select(p => p.ParameterType))
+                    if (parameter.IsGenericType && parameter.GetGenericTypeDefinition() == typeof(IEnumerable<>)) enumerable.Add(parameter.GetGenericArguments()[0]);
+                    else single.Add(parameter);
+        }
+        internal bool OnlyEnumerable(Type type) => enumerable.Contains(type) && !single.Contains(type);
     }
     private static CompositionDiagnostic Diagnostic(string code, DiagnosticSeverity severity, string message, CompositionOwner[] owners) =>
         new(code, severity, message, Array.AsReadOnly(owners));
