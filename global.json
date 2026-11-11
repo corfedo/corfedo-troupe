@@ -1,1 +1,4 @@
-{"sdk":{"version":"10.0.300","rollForward":"disable"}}
+{
+  "sdk": { "version": "10.0.300", "rollForward": "disable" },
+  "msbuild-sdks": { "Aspire.AppHost.Sdk": "13.6.5" }
+}

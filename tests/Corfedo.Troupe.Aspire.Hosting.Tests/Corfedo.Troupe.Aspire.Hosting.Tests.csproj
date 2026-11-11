@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.5" />
+  <Sdk Name="Aspire.AppHost.Sdk" />
   <PropertyGroup>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
@@ -7,9 +7,9 @@
     <!-- The test assembly is the AppHost: project references become resources, and DCP comes from its metadata. -->
     <IsAspireHost>true</IsAspireHost>
     <!-- DCP and the dashboard come from packages for the build machine's runtime identifier, as for any AppHost project, so
-         the restored graph differs per platform and the project has no lock file. -->
+         the restored graph differs per platform and each platform has its own lock file. -->
+    <NuGetLockFilePath>packages.$(NETCoreSdkRuntimeIdentifier).lock.json</NuGetLockFilePath>
     <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
-    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Corfedo.Troupe.Aspire.Hosting/Corfedo.Troupe.Aspire.Hosting.csproj" IsAspireProjectResource="false" />
