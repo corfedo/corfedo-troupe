@@ -23,6 +23,7 @@ internal sealed class CompositionSession
     private readonly List<CompositionDiagnostic> failures = [];
     private ICompositionIntegration? integration;
     private object? failedIntegrationSnapshot;
+    private IReadOnlyList<ListenerRequirement>? failedListeners;
     private CompositionException? failure;
 
     internal CompositionSession(IHostApplicationBuilder builder, DefinitionBuilder definition,
@@ -55,6 +56,8 @@ internal sealed class CompositionSession
         throw Fail(DiagnosticCodes.InvalidPhase, "This composition has no web integration.", ServiceLedger.Application);
     internal T? IntegrationSnapshot<T>() where T : class =>
         failedIntegrationSnapshot as T ?? integration?.Snapshot() as T ?? Runtime.IntegrationSnapshot<T>();
+    // Available while the composition is configured and after it failed; empty without an integration.
+    internal IReadOnlyList<ListenerRequirement> Listeners() => failedListeners ?? integration?.Listeners() ?? [];
 
     internal void ValidateDeclarations()
     {
@@ -256,6 +259,7 @@ internal sealed class CompositionSession
         if (ledger is not null) failures.AddRange(ledger.TakeViolations());
         manifest = (manifest ?? CreateSnapshot()).WithDiagnostics((manifest?.Diagnostics ?? []).Concat(failures));
         failedIntegrationSnapshot = integration?.Snapshot();
+        failedListeners = integration?.Listeners();
         failure = new(manifest.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToArray(), manifest, innerException);
         Phase = CompositionPhase.Failed;
         ReleaseRegistrationState();

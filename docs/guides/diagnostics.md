@@ -2,7 +2,8 @@
 
 A failed composition throws `CompositionException`. Its `Diagnostics` carry a stable code, a severity, a message and
 the owners involved; its `Manifest` is the snapshot at the failure. Errors fail composition; advisories are listed
-in `CompositionManifest.Diagnostics` and do not.
+in `CompositionManifest.Diagnostics` and do not. In [describe mode](manifest.md#describing-a-process) the same
+diagnostics are written to the description instead of thrown.
 
 ## Services, configuration and contributions
 

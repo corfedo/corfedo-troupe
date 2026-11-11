@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
 namespace Corfedo.Troupe;
@@ -13,14 +14,22 @@ public static class CompositionExtensions
     /// Build captures the registrations adapters made after this call, rejects contributions no adapter applied (TRP008), and builds the
     /// default provider with ValidateOnBuild and ValidateScopes. Another ConfigureContainer, Host.UseServiceProviderFactory or
     /// Host.UseDefaultServiceProvider call replaces that factory, and pipeline application and startup then fail with TRP018.
+    /// When the TROUPE_DESCRIBE environment variable names a file, this call composes the same selection, writes its description to
+    /// that file and ends the process with exit code 0; composition errors are part of the description.
     /// </remarks>
-    public static CompositionManifest AddTroupe<T>(this IHostApplicationBuilder builder) where T : ICompositionDefinition, new() =>
-        Compose(builder, () =>
-        {
-            var definition = DefinitionBuilder.Create<T>();
-            var (profile, roles) = Graph.Select(definition, builder.Configuration["Profile"], builder.Configuration["Roles"]);
-            return (definition, profile, roles.Select(n => definition.Roles[n].Identity).ToArray(), Graph.ResolveRoles(definition, roles));
-        });
+    public static CompositionManifest AddTroupe<T>(this IHostApplicationBuilder builder) where T : ICompositionDefinition, new()
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        if (CompositionDescription.Requested() is { } description) CompositionDescription.Describe<T>(builder, description);
+        return Compose(builder, () => Resolve(DefinitionBuilder.Create<T>(), builder.Configuration));
+    }
+
+    internal static (DefinitionBuilder Definition, ProfileIdentity? Profile, RoleIdentity[] Roles, ContributorBuilder[] Nodes) Resolve(
+        DefinitionBuilder definition, IConfiguration configuration)
+    {
+        var (profile, roles) = Graph.Select(definition, configuration["Profile"], configuration["Roles"]);
+        return (definition, profile, roles.Select(n => definition.Roles[n].Identity).ToArray(), Graph.ResolveRoles(definition, roles));
+    }
 
     // Shared by role selection and test roots: the builder composes once, and the resolved closure executes in canonical order.
     internal static CompositionManifest Compose(IHostApplicationBuilder builder,

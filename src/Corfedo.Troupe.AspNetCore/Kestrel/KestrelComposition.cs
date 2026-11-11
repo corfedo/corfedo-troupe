@@ -74,6 +74,8 @@ internal sealed class KestrelComposition(IConfiguration configuration)
         foreach (var extra in configured.Where(n => !requested.ContainsKey(n)))
             yield return new("TRP103", DiagnosticSeverity.Error, $"Configured Kestrel endpoint {extra} is not requested by this composition.", Array.AsReadOnly(new[] { ServiceLedger.Application }));
     }
+    internal IReadOnlyList<ListenerRequirement> Requirements() => Array.AsReadOnly(requested
+        .Select(p => new ListenerRequirement(p.Key, Array.AsReadOnly(p.Value.ToArray()))).ToArray());
     internal IReadOnlyList<KestrelEndpointEntry> Snapshot() => Array.AsReadOnly(requested.OrderBy(p => p.Key, StringComparer.Ordinal)
         .Select(p => new KestrelEndpointEntry(p.Key, Array.AsReadOnly(p.Value.ToArray()), callbacks.GetValueOrDefault(p.Key))).ToArray());
 }

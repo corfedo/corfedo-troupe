@@ -8,7 +8,7 @@ internal static class CoreRules
 {
     internal static IEnumerable<CompositionDiagnostic> Evaluate(CompositionSession session, CompositionManifest manifest)
     {
-        foreach (var read in manifest.Configuration.Where(r => r.Required || r.UnlessComposed is { } absent && !session.Runtime.Includes(absent)))
+        foreach (var read in manifest.Configuration.Where(r => Needed(r, session.Runtime)))
             if (!session.Configuration.GetSection(read.Section).Exists())
                 yield return Diagnostic("TRP005", DiagnosticSeverity.Error, read.UnlessComposed is { } component
                     ? $"{read.Owner.Name}: section {read.Section} is required because {component.FullName ?? component.Name} is not composed in this process."
@@ -36,6 +36,9 @@ internal static class CoreRules
         foreach (var unknown in hosted.Where(s => s.IsFactory))
             yield return Diagnostic("TRP006", DiagnosticSeverity.Advisory, $"Hosted service occurrence {unknown.Id} has unknown factory implementation identity.", [unknown.Owner]);
     }
+    // A section is needed when its read is required, or when the component that makes it optional is not composed.
+    internal static bool Needed(ConfigurationRead read, RuntimeComposition composition) =>
+        read.Required || read.UnlessComposed is { } absent && !composition.Includes(absent);
     private static bool Excluded(Type type)
     {
         if (type == typeof(IHostedService) || type.FullName is "Microsoft.AspNetCore.Hosting.IStartupFilter" or "Microsoft.Extensions.Logging.ILoggerProvider") return true;
