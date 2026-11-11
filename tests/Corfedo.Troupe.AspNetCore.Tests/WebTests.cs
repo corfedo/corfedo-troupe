@@ -129,6 +129,21 @@ public sealed class WebTests
         Assert.Equal(HttpStatusCode.InternalServerError, overlapping.StatusCode);
     }
     [Fact]
+    public void OverlapsAreFoundAmongManyRoutesAndAcrossLiteralCase()
+    {
+        A.Declare = r => r.Endpoints(e =>
+        {
+            for (var i = 0; i < 2000; i++) e.MapGet($"/files/f{i}.js", () => "a");
+            e.MapGet("/Docs/{x}", () => "a");
+        });
+        B.Declare = r => r.Endpoints(e => { e.MapGet("/files/F7.JS", () => "b"); e.MapPost("/files/f8.js", () => "b"); e.MapGet("/docs/{y}", () => "b"); });
+        var builder = Builder(); builder.AddTroupe<Definition>(); using var app = builder.Build(); app.UseComposition();
+        var overlaps = app.Services.GetRequiredService<IComposition>().Manifest.Diagnostics.Where(d => d.Code == "TRP102").Select(d => d.Message).ToArray();
+        Assert.Equal(2, overlaps.Length);
+        Assert.Contains(overlaps, m => m.Contains("/files/f7.js") && m.Contains("/files/F7.JS"));
+        Assert.Contains(overlaps, m => m.Contains("/Docs/{x}") && m.Contains("/docs/{y}"));
+    }
+    [Fact]
     public async Task DisjointConstraintsMethodsAndHostsRemainUsable()
     {
         A.Declare = r => r.Endpoints(e =>

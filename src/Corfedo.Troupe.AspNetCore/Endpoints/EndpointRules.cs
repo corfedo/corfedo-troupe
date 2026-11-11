@@ -13,19 +13,46 @@ internal static class EndpointRules
             if (named.Count() > 1)
                 yield return new("TRP101", DiagnosticSeverity.Error, $"Endpoint name {named.Key} is not globally unique.",
                     Array.AsReadOnly(named.Select(e => e.Entry.Owner).Distinct().ToArray()));
+        foreach (var (i, j) in CandidatePairs(endpoints))
+        {
+            var a = (RouteEndpoint)endpoints[i].Endpoint; var b = (RouteEndpoint)endpoints[j].Endpoint;
+            yield return new("TRP102", DiagnosticSeverity.Advisory,
+                $"Candidate route overlap: {a.RoutePattern.RawText} and {b.RoutePattern.RawText}. Custom matcher policies require HTTP verification.",
+                Array.AsReadOnly(new[] { endpoints[i].Owner, endpoints[j].Owner }.Distinct().ToArray()));
+        }
+    }
+    // Only routes with equal order, precedence, segment count and single-literal segment text (ignoring case) can be candidates, so pairs are
+    // compared within those groups. Equal precedence places single-literal segments at the same positions in both routes.
+    private static List<(int, int)> CandidatePairs(IReadOnlyList<EndpointEntry> endpoints)
+    {
+        var groups = new Dictionary<RouteShape, List<int>>();
         for (var i = 0; i < endpoints.Count; i++)
-            for (var j = i + 1; j < endpoints.Count; j++)
-                if (endpoints[i].Endpoint is RouteEndpoint a && endpoints[j].Endpoint is RouteEndpoint b && Candidate(a, b))
-                    yield return new("TRP102", DiagnosticSeverity.Advisory,
-                        $"Candidate route overlap: {a.RoutePattern.RawText} and {b.RoutePattern.RawText}. Custom matcher policies require HTTP verification.",
-                        Array.AsReadOnly(new[] { endpoints[i].Owner, endpoints[j].Owner }.Distinct().ToArray()));
+            if (endpoints[i].Endpoint is RouteEndpoint route)
+            {
+                var shape = RouteShape.Of(route);
+                if (!groups.TryGetValue(shape, out var group)) groups[shape] = group = [];
+                group.Add(i);
+            }
+        var pairs = new List<(int, int)>();
+        foreach (var group in groups.Values)
+            for (var x = 0; x < group.Count; x++)
+                for (var y = x + 1; y < group.Count; y++)
+                    if (Candidate((RouteEndpoint)endpoints[group[x]].Endpoint, (RouteEndpoint)endpoints[group[y]].Endpoint))
+                        pairs.Add((group[x], group[y]));
+        pairs.Sort();
+        return pairs;
+    }
+    private readonly record struct RouteShape(int Order, decimal Precedence, int Segments, string Literals)
+    {
+        internal static RouteShape Of(RouteEndpoint route) => new(route.Order, route.RoutePattern.InboundPrecedence, route.RoutePattern.PathSegments.Count,
+            string.Join('/', route.RoutePattern.PathSegments.Select(s => s.Parts is [RoutePatternLiteralPart literal] ? literal.Content.ToUpperInvariant() : "")));
     }
     private static bool Candidate(RouteEndpoint a, RouteEndpoint b)
     {
         if (a.Order != b.Order || a.RoutePattern.InboundPrecedence != b.RoutePattern.InboundPrecedence) return false;
         var am = a.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods;
         var bm = b.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods;
-        if (am is { Count: > 0 } && bm is { Count: > 0 } && !am.Intersect(bm, StringComparer.OrdinalIgnoreCase).Any()) return false;
+        if (am is { Count: > 0 } && bm is { Count: > 0 } && !am.Any(m => bm.Contains(m, StringComparer.OrdinalIgnoreCase))) return false;
         var ah = a.Metadata.GetMetadata<IHostMetadata>()?.Hosts;
         var bh = b.Metadata.GetMetadata<IHostMetadata>()?.Hosts;
         // Exact host sets can be proven disjoint. Wildcard policies remain candidate findings.
