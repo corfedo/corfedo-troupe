@@ -33,7 +33,7 @@ internal sealed class TroupeEventingSubscriber(ResourceNotificationService notif
         })).ConfigureAwait(false);
 
         foreach (var described in results.Where(r => r.Description is not null)) Bind(described, execution.IsPublishMode);
-        if (ProblemReport.Create(results) is { } report) throw new DistributedApplicationException(report);
+        if (ProblemReport.Create(results) is { } report) throw new TroupeResourcesException(report);
         if (execution.IsRunMode)
             foreach (var described in results)
                 await notifications.PublishUpdateAsync(described.Resource, snapshot => snapshot with
@@ -77,3 +77,9 @@ internal sealed class TroupeEventingSubscriber(ResourceNotificationService notif
 }
 
 internal sealed record DescribedResource(ProjectResource Resource, IResourceBuilder<ProjectResource> Builder, Description? Description, string? Failure);
+
+// The report is the whole failure: it names what to change in the AppHost, so the exception prints without a stack trace.
+internal sealed class TroupeResourcesException(string report) : DistributedApplicationException(report)
+{
+    public override string ToString() => Message;
+}

@@ -84,7 +84,7 @@ public sealed class WithTroupeTests
         var app = await builder.BuildAsync(AppHostRun.Token);
         await using (app)
         {
-            var error = await Assert.ThrowsAsync<DistributedApplicationException>(() => app.StartAsync(AppHostRun.Token));
+            var error = await Assert.ThrowsAnyAsync<DistributedApplicationException>(() => app.StartAsync(AppHostRun.Token));
             Assert.Equal(
                 """
                 Troupe resources cannot start:
@@ -97,6 +97,8 @@ public sealed class WithTroupeTests
                   plain: endpoint "http" is not a listener of this composition (listeners: public), so nothing serves it. Aspire adds endpoints from the project's launch profile and Kestrel configuration: add the resource with AddTroupeProject, or remove the endpoint.
                   extra: endpoint "admin" is not a listener of this composition (listeners: public), so nothing serves it. Aspire adds endpoints from the project's launch profile and Kestrel configuration: add the resource with AddTroupeProject, or remove the endpoint.
                 """.ReplaceLineEndings(), error.Message);
+            // An unhandled exception prints ToString: the report, without a stack trace.
+            Assert.Equal(error.Message, error.ToString());
             foreach (var resource in new[] { "gateway", "api", "ops-bad", "hybrid", "late", "eager", "plain", "extra" })
                 Assert.True(!app.ResourceNotifications.TryGetCurrentState(resource, out var state) || state.Snapshot.State?.Text is null ||
                     state.Snapshot.State.Text == KnownResourceStates.NotStarted,
@@ -116,7 +118,7 @@ public sealed class WithTroupeTests
             var app = await builder.BuildAsync(AppHostRun.Token);
             await using (app)
             {
-                var error = await Assert.ThrowsAsync<DistributedApplicationException>(() => app.StartAsync(AppHostRun.Token));
+                var error = await Assert.ThrowsAnyAsync<DistributedApplicationException>(() => app.StartAsync(AppHostRun.Token));
                 Assert.StartsWith("Troupe resources cannot start:" + System.Environment.NewLine +
                     "  legacy: the project did not describe itself within 3 seconds: it must call AddTroupe from Corfedo.Troupe ", error.Message);
                 Assert.EndsWith(" or later, and reach it without waiting on external services.", error.Message);

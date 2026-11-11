@@ -53,6 +53,9 @@ Troupe resources cannot start:
 Sections are shown as environment variable names. A section needed because a component is not in the process names
 the resources that run that component. What value to set is the application's decision.
 
+The report is the exception's whole text, without a stack trace. An AppHost that ends with
+`await builder.Build().RunAsync()` prints it once; `builder.Build().Run()` wraps the exception and prints it twice.
+
 ## Values known at run time
 
 Literal argument and environment values pass to the description unchanged. Endpoint references, expressions,

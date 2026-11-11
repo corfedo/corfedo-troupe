@@ -31,4 +31,4 @@ switch (topology)
         throw new InvalidOperationException($"Unknown topology {topology}; use combined or split.");
 }
 
-builder.Build().Run();
+await builder.Build().RunAsync();
