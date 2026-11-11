@@ -65,17 +65,21 @@ internal sealed class KestrelComposition(IConfiguration configuration)
         if (!callbacks.TryAdd(name, owner))
             throw session.Fail("TRP104", $"Kestrel endpoint {name} already has callback owner {callbacks[name].Name}; a second callback would replace its policy.", owner);
     }
+    // One TRP103 for each requested endpoint that is not configured and each configured endpoint that is not requested.
     internal IEnumerable<CompositionDiagnostic> Evaluate()
     {
-        var configured = configuration.GetSection("Kestrel:Endpoints").GetChildren().Select(s => s.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var requirement in requested)
-            if (!configured.Contains(requirement.Key))
-                yield return new("TRP103", DiagnosticSeverity.Error, $"Requested Kestrel endpoint {requirement.Key} is missing from Kestrel:Endpoints.", Array.AsReadOnly(requirement.Value.ToArray()));
-        foreach (var extra in configured.Where(n => !requested.ContainsKey(n)))
+        var listeners = State();
+        foreach (var requirement in listeners.Requested.Where(r => !r.Configured))
+            yield return new("TRP103", DiagnosticSeverity.Error, $"Requested Kestrel endpoint {requirement.Name} is missing from Kestrel:Endpoints.", requirement.Owners);
+        foreach (var extra in listeners.Unrequested)
             yield return new("TRP103", DiagnosticSeverity.Error, $"Configured Kestrel endpoint {extra} is not requested by this composition.", Array.AsReadOnly(new[] { ServiceLedger.Application }));
     }
-    internal IReadOnlyList<ListenerRequirement> Requirements() => Array.AsReadOnly(requested
-        .Select(p => new ListenerRequirement(p.Key, Array.AsReadOnly(p.Value.ToArray()))).ToArray());
+    internal ListenerState State()
+    {
+        var configured = configuration.GetSection("Kestrel:Endpoints").GetChildren().Select(s => s.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return new(Array.AsReadOnly(requested.Select(p => new ListenerRequirement(p.Key, Array.AsReadOnly(p.Value.ToArray()), configured.Contains(p.Key))).ToArray()),
+            Array.AsReadOnly(configured.Where(n => !requested.ContainsKey(n)).ToArray()));
+    }
     internal IReadOnlyList<KestrelEndpointEntry> Snapshot() => Array.AsReadOnly(requested.OrderBy(p => p.Key, StringComparer.Ordinal)
         .Select(p => new KestrelEndpointEntry(p.Key, Array.AsReadOnly(p.Value.ToArray()), callbacks.GetValueOrDefault(p.Key))).ToArray());
 }

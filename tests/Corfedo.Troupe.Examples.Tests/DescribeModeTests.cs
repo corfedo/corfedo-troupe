@@ -62,6 +62,18 @@ public sealed class DescribeModeTests : IDisposable
         Assert.Contains(Gateway, Strings(combined.GetProperty("components")));
     }
 
+    [Fact]
+    public void ListenersSayWhetherTheyAreConfiguredAndConfiguredEndpointsNobodyRequestsAreListed()
+    {
+        var description = Describe("--profile", "combined", "--Kestrel:Endpoints:public:Url=http://localhost:0", "--Kestrel:Endpoints:admin:Url=http://localhost:0");
+        Assert.Equal([("internal", false), ("public", true)],
+            description.GetProperty("listeners").EnumerateArray().Select(l => (l.GetProperty("name").GetString()!, l.GetProperty("configured").GetBoolean())));
+        Assert.Equal(["admin"], Strings(description.GetProperty("unrequestedListeners")));
+        // TRP103 restates both: one diagnostic for the listener that is not configured and one for the endpoint nobody requests.
+        Assert.Equal(2, description.GetProperty("diagnostics").EnumerateArray().Count(d => d.GetProperty("code").GetString() == "TRP103"));
+        Assert.Empty(Describe("--profile", "combined").GetProperty("unrequestedListeners").EnumerateArray());
+    }
+
     [Theory]
     [InlineData(new[] { "--profile", "nope" }, "Unknown profile nope. Declared profiles: combined, api, gateway, ai, api-gateway.")]
     [InlineData(new[] { "--roles", "api" }, "Select a declared profile using Profile configuration, not Roles.")]
@@ -72,6 +84,7 @@ public sealed class DescribeModeTests : IDisposable
         Assert.Equal(5, description.GetProperty("profiles").GetArrayLength());
         Assert.Empty(description.GetProperty("components").EnumerateArray());
         Assert.Empty(description.GetProperty("listeners").EnumerateArray());
+        Assert.Empty(description.GetProperty("unrequestedListeners").EnumerateArray());
         Assert.Empty(description.GetProperty("configuration").EnumerateArray());
         var diagnostic = Assert.Single(description.GetProperty("diagnostics").EnumerateArray());
         Assert.Equal("TRP013", diagnostic.GetProperty("code").GetString());
@@ -110,6 +123,7 @@ public sealed class DescribeModeTests : IDisposable
             Assert.True(process.ExitCode == 0, await stdout + Environment.NewLine + await stderr);
             // Program.cs builds and runs the host after AddTroupe; Kestrel would log its listening addresses.
             Assert.DoesNotContain("Now listening", await stdout);
+            Assert.Contains($"TROUPE_DESCRIBE is set: Troupe wrote this process's composition to {output}", await stderr);
         }
         finally
         {

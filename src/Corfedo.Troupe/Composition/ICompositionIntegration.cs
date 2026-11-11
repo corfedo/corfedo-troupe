@@ -9,12 +9,17 @@ internal interface ICompositionIntegration : ICompositionRule
     // Runs in Build with the final service collection, before the provider exists.
     void Prepare(IServiceCollection services);
     object Snapshot();
-    // The named listeners the composition requests, with the contributors that require each one.
-    IReadOnlyList<ListenerRequirement> Listeners();
+    // The named listeners the composition requests, and the configured listeners no contributor requests.
+    ListenerState Listeners();
     void ReleaseCallbacks();
 }
 
-internal sealed record ListenerRequirement(string Name, IReadOnlyList<CompositionOwner> Owners);
+internal sealed record ListenerState(IReadOnlyList<ListenerRequirement> Requested, IReadOnlyList<string> Unrequested)
+{
+    internal static readonly ListenerState None = new([], []);
+}
+// Configured: the process's configuration has an endpoint with the listener's name.
+internal sealed record ListenerRequirement(string Name, IReadOnlyList<CompositionOwner> Owners, bool Configured);
 
 internal enum CompositionPhase
 {

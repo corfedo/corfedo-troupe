@@ -37,7 +37,8 @@ public sealed class NoDirectDatabaseAccess : ICompositionRule
 When the environment variable `TROUPE_DESCRIBE` names a file, `AddTroupe` composes the process's own selection, writes
 a JSON description to that file and ends the process with exit code 0. The selection comes from the process's own
 command line, configuration sources and environment, so a tool describes a deployment's process by running it with
-that process's arguments and environment. Code before `AddTroupe` runs; code after it never does.
+that process's arguments and environment. Code before `AddTroupe` runs; code after it never does. The process writes
+one line to standard error that names the file.
 
 ```sh
 TROUPE_DESCRIBE=api.json dotnet run --project examples/Operations -- --profile api
@@ -51,7 +52,8 @@ TROUPE_DESCRIBE=api.json dotnet run --project examples/Operations -- --profile a
   "roles": ["ai", "api", "gateway"],
   "selection": { "profile": "api", "roles": ["api"] },
   "components": ["Corfedo.Troupe.Examples.Operations.ApiCalls", "Corfedo.Troupe.Examples.Operations.PublicIngress", "…"],
-  "listeners": [ { "name": "public", "owners": ["Corfedo.Troupe.Examples.Operations.PublicIngress"] } ],
+  "listeners": [ { "name": "public", "configured": false, "owners": ["Corfedo.Troupe.Examples.Operations.PublicIngress"] } ],
+  "unrequestedListeners": [],
   "configuration": [
     {
       "section": "Roles:Remote:gateway", "present": false, "owners": ["Corfedo.Troupe.Examples.Operations.ApiCalls"],
@@ -65,11 +67,13 @@ TROUPE_DESCRIBE=api.json dotnet run --project examples/Operations -- --profile a
 - `profiles` and `roles` list everything the definition declares. `selection` is what this process composes, or null
   when selection failed; `diagnostics` say why.
 - `components` and `listeners` are what this process composes and the named Kestrel endpoints it requests, with the
-  contributors that require each one.
+  contributors that require each one. `configured` says whether `Kestrel:Endpoints` has the endpoint.
+  `unrequestedListeners` names the configured endpoints that no contributor requests.
 - `configuration` lists each section this process needs once: required reads, and `ReadsConfigurationUnless` reads
   whose component is not composed. `unlessComposed` names those components and is absent when a read is required.
   `present` is evaluated against the process's configuration; values are never written.
-- `diagnostics` are the errors and advisories the same composition reports at startup. A composition error does not
-  stop the description.
+- `diagnostics` are the errors and advisories `AddTroupe` reports at startup. A composition error does not stop the
+  description. TRP005 restates the sections with `present: false`, and TRP103 the listeners with `configured: false`
+  and `unrequestedListeners`, so a tool that supplies them reads those fields and skips the two codes.
 
 Lists are in ordinal order. The file is written to a temporary file next to it and then moved into place.

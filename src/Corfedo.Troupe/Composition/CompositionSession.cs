@@ -23,7 +23,7 @@ internal sealed class CompositionSession
     private readonly List<CompositionDiagnostic> failures = [];
     private ICompositionIntegration? integration;
     private object? failedIntegrationSnapshot;
-    private IReadOnlyList<ListenerRequirement>? failedListeners;
+    private ListenerState? failedListeners;
     private CompositionException? failure;
 
     internal CompositionSession(IHostApplicationBuilder builder, DefinitionBuilder definition,
@@ -57,7 +57,7 @@ internal sealed class CompositionSession
     internal T? IntegrationSnapshot<T>() where T : class =>
         failedIntegrationSnapshot as T ?? integration?.Snapshot() as T ?? Runtime.IntegrationSnapshot<T>();
     // Available while the composition is configured and after it failed; empty without an integration.
-    internal IReadOnlyList<ListenerRequirement> Listeners() => failedListeners ?? integration?.Listeners() ?? [];
+    internal ListenerState Listeners() => failedListeners ?? integration?.Listeners() ?? ListenerState.None;
 
     internal void ValidateDeclarations()
     {

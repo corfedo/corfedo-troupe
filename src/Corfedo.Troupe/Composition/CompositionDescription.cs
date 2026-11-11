@@ -38,6 +38,8 @@ internal static class CompositionDescription
         }
         Write(request.Output, writer => WriteDescription(writer, typeof(T), definition, CompositionSession.TryGet(builder), manifest,
             diagnostics, builder.Configuration));
+        // Without this line a process that inherits the variable by mistake would stop with exit code 0 and no output.
+        Console.Error.WriteLine($"{Variable} is set: Troupe wrote this process's composition to {Path.GetFullPath(request.Output)} and ends the process without serving.");
         request.Exit();
     }
 
@@ -68,15 +70,18 @@ internal static class CompositionDescription
             writer.WriteEndObject();
         }
         Strings(writer, "components", (manifest?.Contributors ?? []).Where(c => c.Owner.Kind == OwnerKind.Component).Select(c => c.Owner.Name));
+        var listeners = session?.Listeners() ?? ListenerState.None;
         writer.WriteStartArray("listeners");
-        foreach (var listener in (session?.Listeners() ?? []).OrderBy(l => l.Name, StringComparer.Ordinal))
+        foreach (var listener in listeners.Requested.OrderBy(l => l.Name, StringComparer.Ordinal))
         {
             writer.WriteStartObject();
             writer.WriteString("name", listener.Name);
+            writer.WriteBoolean("configured", listener.Configured);
             Strings(writer, "owners", listener.Owners.Select(o => o.Name));
             writer.WriteEndObject();
         }
         writer.WriteEndArray();
+        Strings(writer, "unrequestedListeners", listeners.Unrequested);
         writer.WriteStartArray("configuration");
         if (session is not null && manifest is not null)
             foreach (var section in manifest.Configuration.Where(r => CoreRules.Needed(r, session.Runtime))

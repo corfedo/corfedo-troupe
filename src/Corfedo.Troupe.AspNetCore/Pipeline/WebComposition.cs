@@ -76,6 +76,6 @@ internal sealed class WebComposition : ICompositionIntegration
     public object Snapshot() => new AspNetCompositionManifest(Array.AsReadOnly((string[])stages.Clone()),
         Array.AsReadOnly(endpoints.ToArray()), Listeners.Snapshot(), session.ActionsExecuted,
         Array.AsReadOnly(controllers.Served), Array.AsReadOnly(controllers.Unserved), Array.AsReadOnly(Controllers.Claims.ToArray()));
-    IReadOnlyList<ListenerRequirement> ICompositionIntegration.Listeners() => Listeners.Requirements();
+    ListenerState ICompositionIntegration.Listeners() => Listeners.State();
     public void ReleaseCallbacks() { middleware.Clear(); mappings.Clear(); }
 }
