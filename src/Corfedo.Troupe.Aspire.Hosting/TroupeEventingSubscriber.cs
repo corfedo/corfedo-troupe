@@ -44,10 +44,14 @@ internal sealed class TroupeEventingSubscriber(ResourceNotificationService notif
     }
 
     // Each listener gets an HTTP endpoint unless the AppHost declared one with its name, and Kestrel binds the endpoint's target port.
+    // Kestrel ignores ASPNETCORE_URLS when named endpoints are configured and logs a warning for it, so Aspire leaves the
+    // listeners' endpoints out of that variable.
     private static void Bind(DescribedResource described, bool publishing)
     {
         var host = publishing ? "*" : "localhost";
-        foreach (var listener in described.Description!.Listeners)
+        var listeners = described.Description!.Listeners.Select(l => l.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (listeners.Count > 0) described.Builder.WithEndpointsInEnvironment(endpoint => !listeners.Contains(endpoint.Name));
+        foreach (var listener in described.Description.Listeners)
         {
             var declared = described.Resource.Annotations.OfType<EndpointAnnotation>()
                 .FirstOrDefault(a => string.Equals(a.Name, listener.Name, StringComparison.OrdinalIgnoreCase));

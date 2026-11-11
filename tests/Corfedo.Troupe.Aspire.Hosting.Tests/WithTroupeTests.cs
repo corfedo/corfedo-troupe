@@ -10,23 +10,28 @@ namespace Corfedo.Troupe.Aspire.Hosting.Tests;
 public sealed class WithTroupeTests
 {
     private static IResourceBuilder<ProjectResource> Shop(IDistributedApplicationBuilder builder, string name = "shop") =>
-        builder.AddProject<Projects.Web>(name, o => { o.ExcludeLaunchProfile = true; o.ExcludeKestrelEndpoints = true; });
+        builder.AddTroupeProject<Projects.Web>(name);
     private static IResourceBuilder<ProjectResource> Operations(IDistributedApplicationBuilder builder, string name) =>
-        builder.AddProject<Projects.Operations>(name, o => { o.ExcludeLaunchProfile = true; o.ExcludeKestrelEndpoints = true; });
+        builder.AddTroupeProject<Projects.Operations>(name);
 
     [Fact]
     public async Task AListenerGetsAnEndpointAndKestrelBindsItsTargetPort()
     {
         var builder = AppHostRun.Builder();
-        var shop = Shop(builder).WithTroupe();
+        var shop = Shop(builder);
         await using var run = await AppHostRun.StartAsync(builder);
         var snapshot = await run.RunningAsync("shop");
         var endpoint = Assert.Single(shop.Resource.Annotations.OfType<EndpointAnnotation>());
         Assert.Equal(("public", "http", true), (endpoint.Name, endpoint.UriScheme, endpoint.IsProxied));
         Assert.Contains("Green tea", await run.GetAsync("shop", "public", "/products"));
-        var url = Environment(snapshot)["Kestrel__Endpoints__public__Url"];
+        var environment = Environment(snapshot);
         // DCP allocates the target port; the request through the proxy shows that Kestrel binds it.
-        Assert.Matches(@"^http://localhost:\d+$", url);
+        Assert.Matches(@"^http://localhost:\d+$", environment["Kestrel__Endpoints__public__Url"]);
+        // Kestrel would ignore the listener's address in ASPNETCORE_URLS and log a warning for it.
+        Assert.DoesNotContain("ASPNETCORE_URLS", environment.Keys);
+        // The launch profile that usually names the environment is left out, so the AppHost's environment name is passed.
+        Assert.Equal(builder.Environment.EnvironmentName, environment["DOTNET_ENVIRONMENT"]);
+        Assert.DoesNotContain("Overriding address", await run.LogsAsync("shop"));
     }
 
     [Fact]
@@ -34,7 +39,7 @@ public sealed class WithTroupeTests
     {
         var port = FreePort();
         var builder = AppHostRun.Builder();
-        var shop = Shop(builder).WithHttpEndpoint(port: port, name: "public", isProxied: false).WithTroupe();
+        var shop = Shop(builder).WithHttpEndpoint(port: port, name: "public", isProxied: false);
         await using var run = await AppHostRun.StartAsync(builder);
         await run.RunningAsync("shop");
         var endpoint = Assert.Single(shop.Resource.Annotations.OfType<EndpointAnnotation>());
@@ -47,8 +52,8 @@ public sealed class WithTroupeTests
     public async Task ReferencesMadeBeforeTheEndpointExistsResolveToIt()
     {
         var builder = AppHostRun.Builder();
-        var shop = Shop(builder).WithTroupe();
-        var client = Shop(builder, "client").WithEnvironment("Upstream", shop.GetEndpoint("public")).WithReference(shop).WithTroupe();
+        var shop = Shop(builder);
+        var client = Shop(builder, "client").WithEnvironment("Upstream", shop.GetEndpoint("public")).WithReference(shop);
         await using var run = await AppHostRun.StartAsync(builder);
         var environment = Environment(await run.RunningAsync("client"));
         var address = shop.GetEndpoint("public").Url;
@@ -67,8 +72,15 @@ public sealed class WithTroupeTests
             .WithEnvironment("Roles__Remote__gateway", "https://gateway.example")
             .WithEnvironment("Roles__Remote__ai", gateway.GetEndpoint("internal"))
             .WithEnvironment("Workload__Root", ReferenceExpression.Create($"{gateway.GetEndpoint("internal").Property(EndpointProperty.TargetPort)}"));
-        Operations(builder, "ops-bad").WithArgs("--Profile=gatewy").WithTroupe();
+        Operations(builder, "ops-bad").WithArgs("--Profile=gatewy");
         Operations(builder, "hybrid").WithTroupeRoles("api", "gateway");
+        // A selection must be literal: a parameter is known only at run time.
+        Operations(builder, "late").WithEnvironment("Profile", builder.AddParameter("profile", "gateway"));
+        // Callbacks run for the description before anything is allocated.
+        Shop(builder, "eager").WithEnvironment(context => context.EnvironmentVariables["Upstream"] = gateway.GetEndpoint("internal").Url);
+        // Kestrel serves only the listeners: an endpoint from the project's Kestrel configuration or one the AppHost adds is dead.
+        builder.AddProject<Projects.Web>("plain").WithTroupe();
+        Shop(builder, "extra").WithHttpEndpoint(name: "admin");
         var app = await builder.BuildAsync(AppHostRun.Token);
         await using (app)
         {
@@ -77,12 +89,15 @@ public sealed class WithTroupeTests
                 """
                 Troupe resources cannot start:
                   api: needs Workload__Identities__api (read by ApiCalls because AiHost and GatewayHost are not in this process). No Troupe resource runs AiHost.
-                       GatewayHost runs in resource "gateway" (listeners: internal), for example:
-                       .WithEnvironment("Workload__Identities__api", gateway.GetEndpoint("internal"))
+                       GatewayHost runs in "gateway" (listeners: internal).
                   ops-bad: TRP013: Unknown profile gatewy. Declared profiles: combined, api, gateway, ai, api-gateway.
                   hybrid: TRP013: Select a declared profile using Profile configuration, not Roles. Declared profiles: combined, api, gateway, ai, api-gateway.
+                  late: TRP013: Unknown profile <run-time value>. Declared profiles: combined, api, gateway, ai, api-gateway. <run-time value> is an endpoint, parameter or expression that is not known when the resource is described; use a literal value.
+                  eager: an argument or environment callback failed before resources start: The endpoint `internal` is not allocated for the resource `gateway`. The callbacks of a Troupe resource also run once before any resource starts, when nothing is allocated; pass the endpoint reference or a ReferenceExpression as the value instead of reading it in the callback.
+                  plain: endpoint "http" is not a listener of this composition (listeners: public), so nothing serves it. Aspire adds endpoints from the project's launch profile and Kestrel configuration: add the resource with AddTroupeProject, or remove the endpoint.
+                  extra: endpoint "admin" is not a listener of this composition (listeners: public), so nothing serves it. Aspire adds endpoints from the project's launch profile and Kestrel configuration: add the resource with AddTroupeProject, or remove the endpoint.
                 """.ReplaceLineEndings(), error.Message);
-            foreach (var resource in new[] { "gateway", "api", "ops-bad", "hybrid" })
+            foreach (var resource in new[] { "gateway", "api", "ops-bad", "hybrid", "late", "eager", "plain", "extra" })
                 Assert.True(!app.ResourceNotifications.TryGetCurrentState(resource, out var state) || state.Snapshot.State?.Text is null ||
                     state.Snapshot.State.Text == KnownResourceStates.NotStarted,
                     $"{resource} started.");
@@ -93,7 +108,7 @@ public sealed class WithTroupeTests
     public async Task AProjectWithoutDescribeModeTimesOutWithTheReason()
     {
         var builder = AppHostRun.Builder();
-        builder.AddProject<Projects.Undescribed>("legacy", o => o.ExcludeLaunchProfile = true).WithTroupe();
+        builder.AddTroupeProject<Projects.Undescribed>("legacy");
         var timeout = ProjectDescriber.Timeout;
         ProjectDescriber.Timeout = TimeSpan.FromSeconds(3);
         try
@@ -130,7 +145,7 @@ public sealed class WithTroupeTests
         try
         {
             var builder = AppHostRun.Builder("--publisher", "manifest", "--output-path", Path.Combine(output, "aspire-manifest.json"));
-            Shop(builder).WithTroupe();
+            Shop(builder);
             var app = await builder.BuildAsync(AppHostRun.Token);
             await using (app) await app.RunAsync(AppHostRun.Token);
             var shop = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(output, "aspire-manifest.json"), AppHostRun.Token))

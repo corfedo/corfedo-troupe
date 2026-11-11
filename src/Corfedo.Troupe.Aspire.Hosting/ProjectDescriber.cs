@@ -18,12 +18,23 @@ internal static class ProjectDescriber
     {
         var project = resource.GetProjectMetadata().ProjectPath;
         var arguments = new List<object>();
-        foreach (var callback in resource.Annotations.OfType<CommandLineArgsCallbackAnnotation>())
-            await callback.Callback(new CommandLineArgsCallbackContext(arguments, resource, cancellationToken)).ConfigureAwait(false);
         var environment = new Dictionary<string, object>();
-        var context = new EnvironmentCallbackContext(execution, resource, environment, cancellationToken);
-        foreach (var callback in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
-            await callback.Callback(context).ConfigureAwait(false);
+        // Aspire runs these callbacks again when it starts the resource, after endpoints are allocated. Here nothing is
+        // allocated yet, so a callback that reads an allocated value (for example EndpointReference.Url) fails.
+        try
+        {
+            foreach (var callback in resource.Annotations.OfType<CommandLineArgsCallbackAnnotation>())
+                await callback.Callback(new CommandLineArgsCallbackContext(arguments, resource, cancellationToken)).ConfigureAwait(false);
+            var context = new EnvironmentCallbackContext(execution, resource, environment, cancellationToken);
+            foreach (var callback in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
+                await callback.Callback(context).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return DescribeResult.Failed("an argument or environment callback failed before resources start: " +
+                $"{exception.Message} The callbacks of a Troupe resource also run once before any resource starts, when nothing is " +
+                "allocated; pass the endpoint reference or a ReferenceExpression as the value instead of reading it in the callback.");
+        }
 
         var output = Path.Combine(Path.GetTempPath(), $"troupe-describe-{Guid.NewGuid():N}.json");
         // The project runs from its directory, as Aspire runs it, so relative content roots and configuration files match.

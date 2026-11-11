@@ -8,7 +8,7 @@ An Aspire AppHost that runs the [Operations example](../Operations) with `Corfed
 | `split` | `gateway`, `ai` and `api`, each with its own profile; `api` calls the other two over their `internal` listeners |
 
 The `certificates` resource runs the example's `certificates` command first and the other resources wait for it.
-The package adds the `public` endpoint. `internal` uses mutual TLS with the example's certificates, so the AppHost
+The Troupe resources are added with `AddTroupeProject`, and the package adds the `public` endpoint. `internal` uses mutual TLS with the example's certificates, so the AppHost
 declares it with `WithHttpsEndpoint` and `WithoutHttpsCertificate`. In `split`, `api` gets the owners' addresses
 from their endpoints and its client certificate paths as literals:
 

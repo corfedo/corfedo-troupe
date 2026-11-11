@@ -6,7 +6,7 @@ var topology = builder.Configuration["Topology"] ?? "combined";
 var certificates = builder.AddProject<Projects.Operations>("certificates", o => o.ExcludeLaunchProfile = true).WithArgs("certificates");
 
 IResourceBuilder<ProjectResource> Operations(string name) =>
-    builder.AddProject<Projects.Operations>(name, o => o.ExcludeLaunchProfile = true).WaitForCompletion(certificates);
+    builder.AddTroupeProject<Projects.Operations>(name).WaitForCompletion(certificates);
 // The internal listener uses mutual TLS with the example's own certificates, so it is declared as an HTTPS endpoint and
 // Aspire's developer certificate is not configured; the package adds `public`.
 IResourceBuilder<ProjectResource> Internal(IResourceBuilder<ProjectResource> resource) =>

@@ -9,6 +9,7 @@ internal sealed record Description(
     Selection? Selection,
     IReadOnlyList<string> Components,
     IReadOnlyList<Listener> Listeners,
+    IReadOnlyList<string> UnrequestedListeners,
     IReadOnlyList<Section> Configuration,
     IReadOnlyList<Diagnostic> Diagnostics)
 {
@@ -25,7 +26,9 @@ internal sealed record Description(
             selection.ValueKind == JsonValueKind.Null ? null
                 : new(selection.GetProperty("profile").GetString(), Strings(selection.GetProperty("roles"))),
             Strings(root.GetProperty("components")),
-            [.. root.GetProperty("listeners").EnumerateArray().Select(l => new Listener(l.GetProperty("name").GetString()!, Strings(l.GetProperty("owners"))))],
+            [.. root.GetProperty("listeners").EnumerateArray().Select(l => new Listener(l.GetProperty("name").GetString()!,
+                l.GetProperty("configured").GetBoolean(), Strings(l.GetProperty("owners"))))],
+            Strings(root.GetProperty("unrequestedListeners")),
             [.. root.GetProperty("configuration").EnumerateArray().Select(c => new Section(c.GetProperty("section").GetString()!,
                 c.GetProperty("present").GetBoolean(), Strings(c.GetProperty("owners")),
                 c.TryGetProperty("unlessComposed", out var unless) ? Strings(unless) : []))],
@@ -37,7 +40,7 @@ internal sealed record Description(
 }
 
 internal sealed record Selection(string? Profile, IReadOnlyList<string> Roles);
-internal sealed record Listener(string Name, IReadOnlyList<string> Owners);
+internal sealed record Listener(string Name, bool Configured, IReadOnlyList<string> Owners);
 // UnlessComposed is empty for a section that a required read needs.
 internal sealed record Section(string Name, bool Present, IReadOnlyList<string> Owners, IReadOnlyList<string> UnlessComposed);
 internal sealed record Diagnostic(string Code, string Severity, string Message);
