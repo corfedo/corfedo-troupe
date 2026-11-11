@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Corfedo.Troupe;
@@ -36,6 +37,11 @@ internal sealed class ContributorBuilder(CompositionOwner owner) : IRoleBuilder,
         ArgumentNullException.ThrowIfNull(configure);
         Record((s, o) => s.ConfigureServices(o, configure));
     }
+    public void HostBuilder(Action<IHostApplicationBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        Record((s, o) => s.ConfigureHost(o, configure));
+    }
     public void Options<T>(string section, bool required = true) where T : class, new()
     {
         EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(section);
@@ -66,6 +72,8 @@ internal sealed class ContributorBuilder(CompositionOwner owner) : IRoleBuilder,
     public void Contribute<T>(Action<T> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
+        if (typeof(IHostApplicationBuilder).IsAssignableFrom(typeof(T)))
+            throw Errors.Fail("TRP023", $"{Owner.Name}: contributions to {typeof(T).Name} are not supported; declare HostBuilder(builder => ...) instead.", Owner);
         Record((s, o) => s.AddContribution(o, typeof(T), target => configure((T)target)));
     }
     public void MultipleAllowed<T>() => Record((s, _) => s.AllowMultiple(typeof(T)));

@@ -8,6 +8,7 @@ namespace Corfedo.Troupe;
 internal sealed class CompositionSession
 {
     private IConfiguration? configuration;
+    private IHostApplicationBuilder? host;
     private ServiceLedger? ledger;
     private ICompositionRule[] rules;
     private readonly IReadOnlyList<ContributorEntry> contributors;
@@ -28,6 +29,7 @@ internal sealed class CompositionSession
     {
         DefinitionType = definition.DefinitionType;
         configuration = builder.Configuration;
+        host = builder;
         ledger = new(builder.Services);
         rules = definition.Rules.ToArray();
         Runtime = new(profile, Array.AsReadOnly(roles), nodes.Where(n => n.Owner.Type is not null).Select(n => n.Owner.Type!).ToFrozenSet());
@@ -69,6 +71,16 @@ internal sealed class CompositionSession
     {
         RequirePhase(CompositionPhase.Composing);
         Invoke(owner, "services", () => ledger!.Configure(owner, callback));
+    }
+    internal void ConfigureHost(CompositionOwner owner, Action<IHostApplicationBuilder> callback)
+    {
+        RequirePhase(CompositionPhase.Composing);
+        Invoke(owner, "host builder", () => ledger!.Configure(owner, services =>
+        {
+            var guarded = new GuardedHostBuilder(host!, services, owner);
+            try { callback(guarded); }
+            finally { guarded.Close(); }
+        }));
     }
     internal void RegisterFrameworkServices(IServiceCollection services)
     {
@@ -296,7 +308,7 @@ internal sealed class CompositionSession
     internal void CompleteStart() { RequirePhase(CompositionPhase.Starting); Phase = CompositionPhase.Started; }
     private void ReleaseRegistrationState()
     {
-        ledger = null; configuration = null; rules = [];
+        ledger = null; configuration = null; host = null; rules = [];
         optionResolvers.Clear();
         foreach (var contribution in contributions) contribution.Callback = null;
         integration?.ReleaseCallbacks(); integration = null;

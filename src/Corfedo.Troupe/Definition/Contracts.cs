@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Corfedo.Troupe;
@@ -59,6 +60,13 @@ public interface IContributorBuilder
     IContributorBuilder Requires<T>() where T : IComponent, new();
     /// <summary>Records a synchronous service callback. Do not retain the supplied collection.</summary>
     void Services(Action<IServiceCollection> configure);
+    /// <summary>Records a synchronous callback for library extensions of the host builder, owned like <see cref="Services"/>.</summary>
+    /// <remarks>
+    /// Configuration and the environment are read-only. These fail with TRP023: configuration value writes,
+    /// <c>Configuration.Build</c>, <c>Configuration.Sources</c>, <c>Configuration.Properties</c>, environment setters,
+    /// <c>ConfigureContainer</c>, and use of the builder after the callback returns.
+    /// </remarks>
+    void HostBuilder(Action<IHostApplicationBuilder> configure);
     /// <summary>Binds one owned section to default options, with required presence validation and ValidateOnStart.</summary>
     void Options<T>(string section, bool required = true) where T : class, new();
     /// <summary>Binds owned options and explicitly registers a DI-constructed validator.</summary>
