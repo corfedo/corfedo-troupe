@@ -46,4 +46,6 @@ the `IConfigureOptions<HttpClientFactoryOptions>` that sets a typed client's pri
 fail with TRP019, and the message lists the candidates.
 
 `WebApplicationFactory<Program>` works unchanged: the test host is built by Troupe's provider factory and includes
-`ConfigureTestServices` registrations.
+`ConfigureTestServices` registrations. The test selects declared roles or a profile with
+`UseSetting("Roles", "orders")` or `UseSetting("Profile", "orders")`. `Program.cs` composes before any factory callback
+reaches the builder, so `ComposeForTest`, `TestServices` and `ReplaceForTest` need a test that creates the builder.

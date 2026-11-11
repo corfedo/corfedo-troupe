@@ -67,7 +67,7 @@ itself are owned by `application`. Every contribution must be applied exactly on
 | Pattern | Target | Guide |
 | --- | --- | --- |
 | A test that builds the host | `CompositionVerifier.VerifyAsync<T>(() => App.CreateBuilder([]))`; `VerifyProfilesAsync` with profiles | testing |
-| `WebApplicationFactory<Program>`, `ConfigureTestServices` | unchanged | testing |
+| `WebApplicationFactory<Program>`, `ConfigureTestServices` | unchanged; select roles or a profile with `UseSetting`; test roots and `TestServices` need a test that creates the builder | testing |
 | Test-only slices built from `AddX()` calls | `ComposeForTest<T>(root => root.Requires<XComponent>())` | testing |
 | Replacing a service in tests | `TestServices`, `ReplaceForTest<T>` before `Build` (TRP019) | testing |
 | `dotnet ef` and other tools that start the host | they run `Build` and its checks: provide the required configuration, or an `IDesignTimeDbContextFactory<T>` | — |

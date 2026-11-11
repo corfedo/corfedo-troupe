@@ -64,6 +64,18 @@ comma-separated value such as `--roles orders,notifications`.
 In a definition with roles, the components the definition requires are composed in every selection, beside the
 selected roles, for parts every process needs such as telemetry.
 
+A selection names at least one role: a missing or empty `Roles` value fails with TRP012 instead of starting only the
+definition's components. A process that runs only those components, such as an outbox relay, is a role that requires
+nothing more:
+
+```csharp
+[Role("outbox")]
+public sealed class OutboxRole : IRole
+{
+    public void Compose(IRoleBuilder role) { }
+}
+```
+
 ## Runtime membership
 
 `IComposition` reports what this process composes:
