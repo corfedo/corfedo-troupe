@@ -111,7 +111,7 @@ public sealed class DescribeModeTests : IDisposable
             WorkingDirectory = directory, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
             Environment = { ["TROUPE_DESCRIBE"] = output, ["Roles__Remote__gateway"] = "https://gateway.invalid" }
         };
-        foreach (var argument in new[] { typeof(OperationsApplication).Assembly.Location, "--profile", "api" }) start.ArgumentList.Add(argument);
+        foreach (var argument in new[] { ApplicationExamplesTests.ExampleExecutable("Operations"), "--profile", "api" }) start.ArgumentList.Add(argument);
         using var process = Process.Start(start)!;
         var stdout = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken);
         var stderr = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);

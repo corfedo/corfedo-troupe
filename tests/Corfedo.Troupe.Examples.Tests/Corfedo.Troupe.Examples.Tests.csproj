@@ -18,7 +18,7 @@
     <PackageReference Include="xunit.v3.mtp-off" />
     <PackageReference Include="xunit.v3.assert" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
-    <AssemblyMetadata Include="MessagingExecutable" Value="$(MSBuildProjectDirectory)/../../examples/Messaging/bin/$(Configuration)/$(TargetFramework)/Messaging.dll" />
+    <AssemblyMetadata Include="ExampleOutputDirectory" Value="bin/$(Configuration)/$(TargetFramework)" />
     <AssemblyMetadata Include="ExamplesDirectory" Value="$(MSBuildProjectDirectory)/../../examples" />
   </ItemGroup>
 </Project>

@@ -20,9 +20,9 @@ public sealed class ApplicationExamplesTests
 {
     internal static string ContentRoot(string example) => Path.GetFullPath(Path.Combine(
         typeof(ApplicationExamplesTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(a => a.Key == "ExamplesDirectory").Value!, example));
-    // The example's own build output: its base directory holds only the example's assemblies, as in a deployment.
-    internal static string MessagingExecutable() => Path.GetFullPath(
-        typeof(ApplicationExamplesTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(a => a.Key == "MessagingExecutable").Value!);
+    // The example's own build output: its base directory holds only the example's assemblies and files, as in a deployment.
+    internal static string ExampleExecutable(string example) => Path.Combine(ContentRoot(example),
+        typeof(ApplicationExamplesTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(a => a.Key == "ExampleOutputDirectory").Value!, example + ".dll");
 
     [Fact]
     public async Task WorkerVerifiesTheRealDefinitionWithoutRoles()
