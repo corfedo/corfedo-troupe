@@ -3,16 +3,19 @@
     <Project Path="src/Corfedo.Troupe/Corfedo.Troupe.csproj" />
     <Project Path="src/Corfedo.Troupe.AspNetCore/Corfedo.Troupe.AspNetCore.csproj" />
     <Project Path="src/Corfedo.Troupe.Testing/Corfedo.Troupe.Testing.csproj" />
+    <Project Path="src/Corfedo.Troupe.Aspire.Hosting/Corfedo.Troupe.Aspire.Hosting.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Corfedo.Troupe.Examples.Tests/Corfedo.Troupe.Examples.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.Tests/Corfedo.Troupe.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.AspNetCore.Tests/Corfedo.Troupe.AspNetCore.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.Testing.Tests/Corfedo.Troupe.Testing.Tests.csproj" />
+    <Project Path="tests/Corfedo.Troupe.Aspire.Hosting.Tests/Corfedo.Troupe.Aspire.Hosting.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Fixtures/">
     <Project Path="tests/Fixtures/GeneratedBindings/GeneratedBindings.csproj" />
     <Project Path="tests/Fixtures/IncompleteMessagingArtifact/IncompleteMessagingArtifact.csproj" />
+    <Project Path="tests/Fixtures/Undescribed/Undescribed.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <Project Path="examples/Messaging/Messaging.csproj" />

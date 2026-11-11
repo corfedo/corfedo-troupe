@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Description>Aspire hosting integration for Corfedo Troupe: runs Troupe profiles and roles as Aspire project resources, adds an endpoint for each listener they request and checks every resource's composition before any resource starts.</Description>
+    <PackageTags>aspire;hosting;composition;profiles;roles;kestrel</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- The first Corfedo.Troupe version with describe mode, named in the message for a project that does not describe itself. -->
+    <TroupeDescribeVersion Condition="'$(TroupeDescribeVersion)' == ''">$(Version)</TroupeDescribeVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" />
+    <AssemblyMetadata Include="TroupeDescribeVersion" Value="$(TroupeDescribeVersion)" />
+    <None Remove="$(MSBuildThisFileDirectory)../../docs/package-readme.md" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+    <InternalsVisibleTo Include="Corfedo.Troupe.Aspire.Hosting.Tests" />
+  </ItemGroup>
+</Project>

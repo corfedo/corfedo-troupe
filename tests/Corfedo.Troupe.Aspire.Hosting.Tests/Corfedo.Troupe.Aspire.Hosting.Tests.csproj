@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.4" />
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <!-- The test assembly is the AppHost: project references become resources, and DCP comes from its metadata. -->
+    <IsAspireHost>true</IsAspireHost>
+    <!-- DCP and the dashboard come from packages for the build machine's runtime identifier, as for any AppHost project, so
+         the restored graph differs per platform and the project has no lock file. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Corfedo.Troupe.Aspire.Hosting/Corfedo.Troupe.Aspire.Hosting.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="../../examples/Web/Web.csproj" />
+    <ProjectReference Include="../../examples/Operations/Operations.csproj" />
+    <ProjectReference Include="../Fixtures/Undescribed/Undescribed.csproj" />
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3.mtp-off" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
