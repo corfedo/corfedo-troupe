@@ -147,7 +147,7 @@ public sealed class MessagingExampleTests
                 WorkingDirectory = directory, UseShellExecute = false,
                 RedirectStandardOutput = true, RedirectStandardError = true
             };
-            start.ArgumentList.Add(typeof(MessagingApplication).Assembly.Location);
+            start.ArgumentList.Add(ApplicationExamplesTests.MessagingExecutable());
             start.ArgumentList.Add("codegen"); start.ArgumentList.Add("write");
             using var process = Process.Start(start)!;
             var output = process.StandardOutput.ReadToEndAsync(TestContext.Current.CancellationToken); var error = process.StandardError.ReadToEndAsync(TestContext.Current.CancellationToken);

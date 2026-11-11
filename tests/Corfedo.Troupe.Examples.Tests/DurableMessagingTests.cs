@@ -157,9 +157,7 @@ public sealed class DurableMessagingTests
                 UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true,
                 WorkingDirectory = ApplicationExamplesTests.ContentRoot("Messaging")
             };
-            var executable = typeof(DurableMessagingTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-                .Single(attribute => attribute.Key == "MessagingExecutable").Value!;
-            start.ArgumentList.Add(Path.GetFullPath(executable));
+            start.ArgumentList.Add(ApplicationExamplesTests.MessagingExecutable());
             foreach (var argument in args) start.ArgumentList.Add(argument);
             start.ArgumentList.Add("--Kestrel:Endpoints:public:Url");
             start.ArgumentList.Add("http://127.0.0.1:0");
