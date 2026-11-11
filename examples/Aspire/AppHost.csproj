@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.4" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsAspireHost>true</IsAspireHost>
+    <UserSecretsId>corfedo-troupe-examples-aspire</UserSecretsId>
+    <!-- DCP and the dashboard come from packages for the build machine's runtime identifier, so the restored graph differs
+         per platform and the project has no lock file. -->
+    <!-- ASPIRECERTIFICATES001: WithoutHttpsCertificate is experimental in Aspire 13.6; the example keeps its own TLS certificates. -->
+    <NoWarn>$(NoWarn);ASPIRE010;ASPIRECERTIFICATES001</NoWarn>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <ProjectReference Include="../../src/Corfedo.Troupe.Aspire.Hosting/Corfedo.Troupe.Aspire.Hosting.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="../Operations/Operations.csproj" />
+  </ItemGroup>
+</Project>

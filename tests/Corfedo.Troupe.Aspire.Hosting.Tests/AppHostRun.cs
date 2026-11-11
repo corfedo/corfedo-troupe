@@ -57,11 +57,32 @@ internal sealed class AppHostRun : IAsyncDisposable
     internal async Task<string> GetAsync(string resource, string endpoint, string path)
     {
         using var client = App.CreateHttpClient(resource, endpoint);
-        for (var attempt = 0; ; attempt++)
+        client.Timeout = TimeSpan.FromSeconds(5);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (true)
         {
             try { return await client.GetStringAsync(path, Token); }
-            catch (HttpRequestException) when (attempt < 60) { await Task.Delay(250, Token); }
+            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException && !Token.IsCancellationRequested)
+            {
+                if (DateTime.UtcNow > deadline) throw new InvalidOperationException($"GET {path} on {resource} failed.{Environment.NewLine}{await LogsAsync(resource)}", exception);
+                await Task.Delay(250, Token);
+            }
         }
+    }
+
+    // The resource's console output so far, for failure messages.
+    internal async Task<string> LogsAsync(string resource)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var lines = new List<string>();
+        if (!App.ResourceNotifications.TryGetCurrentState(resource, out var state)) return "";
+        try
+        {
+            await foreach (var batch in App.Services.GetRequiredService<ResourceLoggerService>().WatchAsync(state.ResourceId).WithCancellation(timeout.Token))
+                lines.AddRange(batch.Select(l => l.Content));
+        }
+        catch (OperationCanceledException) { }
+        return string.Join(Environment.NewLine, lines);
     }
 
     private async Task WatchAsync()

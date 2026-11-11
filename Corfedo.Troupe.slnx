@@ -22,5 +22,6 @@
     <Project Path="examples/Worker/Worker.csproj" />
     <Project Path="examples/Operations/Operations.csproj" />
     <Project Path="examples/Web/Web.csproj" />
+    <Project Path="examples/Aspire/AppHost.csproj" />
   </Folder>
 </Solution>

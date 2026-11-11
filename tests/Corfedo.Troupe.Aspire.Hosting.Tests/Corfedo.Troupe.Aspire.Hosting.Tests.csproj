@@ -16,6 +16,8 @@
     <ProjectReference Include="../../examples/Web/Web.csproj" />
     <ProjectReference Include="../../examples/Operations/Operations.csproj" />
     <ProjectReference Include="../Fixtures/Undescribed/Undescribed.csproj" />
+    <!-- The example AppHost runs through Aspire.Hosting.Testing from its own assembly; the alias keeps its Projects types apart. -->
+    <ProjectReference Include="../../examples/Aspire/AppHost.csproj" IsAspireProjectResource="false" Aliases="example" />
     <PackageReference Include="Aspire.Hosting.AppHost" />
     <PackageReference Include="Aspire.Hosting.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
