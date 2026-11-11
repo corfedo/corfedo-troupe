@@ -30,10 +30,19 @@ internal sealed class WebComposition : ICompositionIntegration
                 session.RunPipelineCallback(contribution.Owner, () => contribution.Configure(application));
         if (mappings.Count > 0 && !RoutingBoundary.HasRootRouting(application))
             throw session.Fail("TRP100", "Endpoint composition requires an explicit root UseRouting callback in an application-declared stage.", pipelineOwners.ToArray());
+        var sources = ((IEndpointRouteBuilder)application).DataSources;
+        // Data sources build request delegates when enumerated, so each source is enumerated under the owner whose map
+        // callback added it; sources the application mapped directly stay application-owned.
+        var added = new Dictionary<EndpointDataSource, CompositionOwner>(ReferenceEqualityComparer.Instance);
         foreach (var (owner, map) in mappings)
-            session.RunPipelineCallback(owner, () => map(application.MapGroup("").WithMetadata(new EndpointOwner(owner))));
-        session.RunPipelineCallback(ServiceLedger.Application, () => endpoints.AddRange(
-            ((IEndpointRouteBuilder)application).DataSources.SelectMany(d => d.Endpoints)
+            session.RunPipelineCallback(owner, () =>
+            {
+                var before = sources.ToHashSet(ReferenceEqualityComparer.Instance);
+                map(application.MapGroup("").WithMetadata(new EndpointOwner(owner)));
+                foreach (var source in sources.Where(s => !before.Contains(s))) added.TryAdd(source, owner);
+            });
+        foreach (var source in sources.ToArray())
+            session.RunPipelineCallback(added.GetValueOrDefault(source, ServiceLedger.Application), () => endpoints.AddRange(source.Endpoints
                 .Select(e => new EndpointEntry(e, e.Metadata.GetMetadata<EndpointOwner>()?.Owner ?? ServiceLedger.Application))));
     }
     public IEnumerable<CompositionDiagnostic> Evaluate(CompositionManifest manifest)
