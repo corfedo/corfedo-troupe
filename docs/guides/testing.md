@@ -21,6 +21,11 @@ var result = await CompositionVerifier.VerifyProfilesAsync<ShopComposition>(
 
 An optional `overrides` callback replaces external resources.
 
+With `definition.ControllerClaims()`, verification also fails with TRP108 for a controller that some composition
+discovers and no verified composition maps. `VerifyProfilesAsync` judges this across all profiles and also fails with
+TRP109 for overlapping claims of components that no profile composes together; `VerifyAsync` judges it only for a
+definition without roles, since one role selection does not show what the others serve.
+
 ## Compose a slice
 
 `ComposeForTest` composes a test-owned root `test:<name>` that declares like a role, with the definition's stages and
@@ -46,6 +51,8 @@ the `IConfigureOptions<HttpClientFactoryOptions>` that sets a typed client's pri
 fail with TRP019, and the message lists the candidates.
 
 `WebApplicationFactory<Program>` works unchanged: the test host is built by Troupe's provider factory and includes
-`ConfigureTestServices` registrations. The test selects declared roles or a profile with
+`ConfigureTestServices` registrations. Changes the factory makes while the host is built, including removing or
+replacing a component's service, are owned by `test:host` in the manifest; the same removal in `Program.cs` fails with
+TRP021. The test selects declared roles or a profile with
 `UseSetting("Roles", "orders")` or `UseSetting("Profile", "orders")`. `Program.cs` composes before any factory callback
 reaches the builder, so `ComposeForTest`, `TestServices` and `ReplaceForTest` need a test that creates the builder.

@@ -3,7 +3,7 @@
 Each row names what a migration meets, where it goes, and the guide that documents the target. Guides are in
 `docs/guides/` of the Troupe repository at the tag of the version in use
 (`https://github.com/corfedo/corfedo-troupe/tree/v<version>/docs/guides`). Behavior notes were checked against Troupe
-0.2.0, MassTransit 8.5 and MediatR 12.5.
+0.3.0, MassTransit 8.5 and MediatR 12.5.
 
 ## Services and configuration
 
@@ -11,7 +11,7 @@ Each row names what a migration meets, where it goes, and the guide that documen
 | --- | --- | --- |
 | `services.AddX()` of one area | `component.Services(services => services.AddX())` | composition |
 | `AddX()` calling another area's `AddY()` for its services | `Requires<YComponent>()` when X's project references Y's; otherwise the definition requires both | composition |
-| `services.Configure<T>(configuration.GetSection("S"))`, `AddOptions<T>().BindConfiguration("S")` | `Options<T>("S")`; `Options<T>("S", required: false)` when the section is optional | configuration |
+| `services.Configure<T>(configuration.GetSection("S"))`, `AddOptions<T>().BindConfiguration("S")` | `Options<T>("S")`; `Options<T>("S", required: false)` when the section is optional. Another binding of the same type's default instance left anywhere fails `Build` (TRP022) | configuration |
 | `ValidateDataAnnotations()`, `Validate(...)`, `IValidateOptions<T>` | `Options<T, TValidator>("S")`, or `Options<T>` plus `services.AddOptions<T>().ValidateDataAnnotations()` in `Services` | configuration |
 | Named options `Configure<T>("name", ...)` | `services.AddOptions<T>("name").BindConfiguration("S:name")` in `Services`, plus `ReadsConfiguration("S:name")`; `Options<T>` has no names | configuration |
 | A value read at registration (`configuration["X"]`, `GetConnectionString`) | `ReadsConfiguration("X")`, and read `IConfiguration` from the provider in a factory: `AddDbContext<T>((provider, options) => ...)`, `AddSingleton(provider => ...)` | configuration |
@@ -21,7 +21,7 @@ Each row names what a migration meets, where it goes, and the guide that documen
 | `TryAdd*` | works; a registration the application made before `AddTroupe` wins silently and the component's is not recorded | manifest |
 | Two areas register one service type | TRP001 advisory; keep one owner, or `MultipleAllowed<T>()` when intended | diagnostics |
 | A service that must not have several registrations | `ExclusiveService<T>()` (TRP004); it allows none, so presence still comes from a consumer or `ValidateOnBuild` | composition |
-| `Replace`/`RemoveAll` of another area's registration | fails with TRP003 inside a component; move the decision to the owner. In `Program.cs` it passes silently | diagnostics |
+| `Replace`/`RemoveAll` of another area's registration | fails with TRP003 inside a component, and with TRP021 in `Program.cs` after `AddTroupe`; move the decision to the owner. Replacements a `WebApplicationFactory` makes are owned by `test:host` and pass | diagnostics |
 | `AddHostedService<T>()`, `BackgroundService` | `Services(...)`; `AddHostedService` deduplicates by type, an explicit `AddSingleton<IHostedService, T>` twice is TRP002 | diagnostics |
 | Startup work that must finish before serving (warm-up, schema check) | `Check((services, cancellationToken) => ...)`; checks run after hosted services are constructed and startup options are validated, and before hosted services start. Work a hosted service's constructor depends on stays between `Build` and `Run`; changing that dependency is a separate decision. The verifier does not run checks, a test that starts the host does | composition |
 | `AddHttpClient<T>`, `AddDbContext<T>` from two areas | TRP001 advisories on the client or `DbContextOptions`; one component owns it | diagnostics |
@@ -35,7 +35,7 @@ Each row names what a migration meets, where it goes, and the guide that documen
 | `UseWolverine(options => ...)` with handlers of several areas | `Contribute<WolverineOptions>(...)`; `builder.UseWolverine(options => builder.ApplyContributions(options))` | contributions |
 | `AddMassTransit(x => { x.AddConsumer<...>(); })` | `Contribute<IBusRegistrationConfigurator>(x => x.AddConsumer<T>())`; `services.AddMassTransit(x => { builder.ApplyContributions(x); x.UsingX(...); })`. Several consumers raise TRP001 on `IConsumerRegistration`: declare `MultipleAllowed<IConsumerRegistration>()` | contributions |
 | `AddMediatR(cfg => cfg.RegisterServicesFromAssembly(...))` across areas | `Contribute<MediatRServiceConfiguration>(...)` applied in `services.AddMediatR(cfg => builder.ApplyContributions(cfg))`; the handlers it scans afterwards are owned by `application` | contributions |
-| Extensions on `IHostApplicationBuilder` (.NET Aspire `AddServiceDefaults`, `AddNpgsqlDataSource`, `EnrichNpgsqlDbContext`; templates' `builder.AddInfrastructureServices()`) | `Contribute<IHostApplicationBuilder>(host => host.AddX(...))`; `builder.ApplyContributions<IHostApplicationBuilder>(builder)` with the explicit type argument (the inferred `WebApplicationBuilder` leaves them unapplied, TRP008) | contributions |
+| Extensions on `IHostApplicationBuilder` (.NET Aspire `AddServiceDefaults`, `AddNpgsqlDataSource`, `EnrichNpgsqlDbContext`; templates' `builder.AddInfrastructureServices()`) | `HostBuilder(host => host.AddX(...))` in the component, with `ReadsConfiguration` for the sections the extension reads. Configuration and the environment are read-only there and configuration sources belong before `AddTroupe` (TRP023); contributions to host builder types fail with TRP023 | migrating |
 
 Registrations made inside a contribution callback are owned by the contributor; registrations the adapter makes
 itself are owned by `application`. Every contribution must be applied exactly once (TRP008).
@@ -53,8 +53,8 @@ itself are owned by `application`. Every contribution must be applied exactly on
 | Middleware that must wrap everything (exception handler, HSTS, forwarded headers) | stays in `Program.cs` before `app.UseComposition()` | aspnetcore |
 | Middleware after `UseRouting` that reads the endpoint (authorization, endpoint-metadata policies) | a stage after the routing stage, or in `Program.cs` after `app.UseComposition()`; before `UseComposition` it sees no endpoint | aspnetcore |
 | `app.MapX()`, `MapGroup` | `Endpoints(endpoints => ...)`; while not migrated, mapped in `Program.cs` before `app.UseComposition()`, which records the endpoints for route checks | aspnetcore |
-| `AddControllers()` + `MapControllers()` | one component owns both; mapping from two components maps every controller twice (TRP102). Controllers come from application parts, by default the whole entry assembly, whatever is composed | aspnetcore |
-| Reflection-based endpoint scanning (`app.MapEndpoints(assembly)`) | one component maps it; it maps everything in the assembly, like controllers | aspnetcore |
+| `AddControllers()` + `MapControllers()` | one component owns both; mapping from two components maps every controller twice (TRP102). Controllers come from application parts, by default the whole entry assembly, whatever is composed. With `definition.ControllerClaims()`, each area's component claims its controllers with `Controllers<TMarker>()` (the marker's namespace and child namespaces) and owns their endpoints; unclaimed controllers are served nowhere, overlapping claims of different components fail (TRP109) | aspnetcore |
+| Reflection-based endpoint scanning (`app.MapEndpoints(assembly)`) | one component maps it; it maps everything in the assembly, and controller claims do not cover it | aspnetcore |
 | `Kestrel:Endpoints` entries | once the composition declares stages, middleware or endpoints, each entry must be requested with `KestrelEndpoint(name)` by a composed component, and each requested name configured (TRP103) | aspnetcore |
 | `UseUrls`, `ASPNETCORE_URLS`, `--urls` | unchanged while `Kestrel:Endpoints` has no entries; Kestrel uses the entries instead when there are any | aspnetcore |
 | TLS or client certificate setup of one listener | `KestrelEndpoint(name, configure)`, one owner per endpoint (TRP104) | aspnetcore |
@@ -67,7 +67,7 @@ itself are owned by `application`. Every contribution must be applied exactly on
 | Pattern | Target | Guide |
 | --- | --- | --- |
 | A test that builds the host | `CompositionVerifier.VerifyAsync<T>(() => App.CreateBuilder([]))`; `VerifyProfilesAsync` with profiles | testing |
-| `WebApplicationFactory<Program>`, `ConfigureTestServices` | unchanged; select roles or a profile with `UseSetting`; test roots and `TestServices` need a test that creates the builder | testing |
+| `WebApplicationFactory<Program>`, `ConfigureTestServices` | unchanged; select roles or a profile with `UseSetting`; changes the factory makes are owned by `test:host`; test roots and `TestServices` need a test that creates the builder | testing |
 | Test-only slices built from `AddX()` calls | `ComposeForTest<T>(root => root.Requires<XComponent>())` | testing |
 | Replacing a service in tests | `TestServices`, `ReplaceForTest<T>` before `Build` (TRP019) | testing |
 | `dotnet ef` and other tools that start the host | they run `Build` and its checks: provide the required configuration, or an `IDesignTimeDbContextFactory<T>` | — |

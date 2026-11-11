@@ -20,7 +20,34 @@ public sealed class PublicIngressComponent : IComponent
 
 Roles and components map endpoints with `Endpoints(endpoints => ...)`. After `Build`, `app.UseComposition()` applies
 the stages in order, then maps each owner's endpoints, so the application decides where its own middleware goes. A
-recorded pipeline that was never applied fails startup with TRP105.
+recorded pipeline that was never applied fails startup with TRP105. An endpoint that fails while its request delegate
+is built fails with TRP017 naming the owner that mapped it.
+
+## Controllers
+
+MVC discovers controllers from application parts, whatever the process composes. With `definition.ControllerClaims()`,
+every process that registers MVC serves only the controllers that its composed contributors claim:
+
+```csharp
+public sealed class OrdersComponent : IComponent
+{
+    public void Compose(IComponentBuilder component)
+    {
+        component.Requires<MvcComponent>();               // AddControllers, UseRouting and MapControllers
+        component.Controllers<OrdersController>();
+    }
+}
+```
+
+`Controllers<TMarker>()` claims the controllers in the namespace of `TMarker` and its child namespaces, in its
+assembly, and their endpoints are owned by the claiming component. An unclaimed controller is served nowhere. One
+contributor may claim several namespaces; claims of different contributors on equal or nested namespaces fail with
+TRP109. `Controllers<T>()` without the definition's declaration, and claims in a process without MVC, fail with
+TRP107. The declaration also filters MVC that the application registers after `AddTroupe`.
+
+`AspNetCompositionManifest` lists the claims, the controllers with a mapped action (`ServedControllers`) and those
+without (`UnservedControllers`) in each process. `CompositionVerifier` fails with TRP108 for a controller that no
+verified composition maps ([testing](testing.md)). Razor Pages and endpoints found by reflection are not claimed.
 
 ## Kestrel endpoints
 

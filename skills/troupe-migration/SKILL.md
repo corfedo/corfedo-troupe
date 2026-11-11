@@ -27,8 +27,8 @@ Decide which outcome the user asked for, and confirm it if unclear:
 
 Then:
 
-- Find the Troupe version the application references or will reference. This skill describes 0.2.0
-  (`AddTroupe<T>()`, `definition.Requires<T>()`, typed profiles). For another version, read that version's README and
+- Find the Troupe version the application references or will reference. This skill describes 0.3.0
+  (`AddTroupe<T>()`, `definition.Requires<T>()`, typed profiles, `HostBuilder`, controller claims). For another version, read that version's README and
   guides at its tag and follow them where they differ; the API changes before 1.0.
 - Read the repository's agent instructions (`AGENTS.md`, `CLAUDE.md`, contribution guides). Their rules on branches,
   commits, tests and dependencies apply to every step below.
@@ -121,8 +121,8 @@ For each component in the approved order:
 1. Create the component in the area's project. Move the registrations, the configuration reads, the middleware and the
    endpoints of that area into it, translated with [references/patterns.md](references/patterns.md).
 2. Delete the moved code from `Program.cs` and from the old extension methods in the same step. Remove calls from
-   not-yet-migrated extensions into the migrated area: a leftover `Configure<T>` binds the section twice without any
-   diagnostic. Delete extension methods that are left empty; keep public ones other applications use, and call them
+   not-yet-migrated extensions into the migrated area: a leftover `Configure<T>` binding the area's section fails `Build`
+   with TRP022. Delete extension methods that are left empty; keep public ones other applications use, and call them
    from the component.
 3. Add the `Requires<T>()` edges the approved graph lists.
 4. Build, run the composition test, the tests that start the application and the area's tests. The verifier does not
@@ -179,8 +179,10 @@ intended split; it does not make it ready.
   content root, launch settings, Dockerfiles and orchestration references from the inventory. Files in the repository
   change in the approved plan; list the ones outside it, with the change each needs (`--profile`, per-process
   `Kestrel:Endpoints`, sections only some processes read), for the user.
+- With controllers, declare `definition.ControllerClaims()` and claim each part's controllers in its component before
+  the profiles exist; without claims every process serves every controller.
 - Verify every profile with `CompositionVerifier.VerifyProfilesAsync<T>(profile => App.CreateBuilder(["--profile", profile.Name]))`,
-  and start each profile in a test. The verifier catches constructor dependencies on components a profile does not
+  and start each profile in a test. With controller claims it also fails for a controller that no profile maps (TRP108). The verifier catches constructor dependencies on components a profile does not
   compose. Check by reading what it does not: dependencies inside service factories, `IEnumerable<T>` consumers that
   become empty, minimal API parameters inferred as request bodies (the service is missing, so `POST` binds the type
   from the body).

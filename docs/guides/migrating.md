@@ -122,9 +122,9 @@ public sealed class PublicIngressComponent : IComponent
 components require it.
 
 Registrations that `Program.cs` still makes are owned by `application` in the [manifest](manifest.md). `AddOrders`
-only called `AddCatalog`, so its call goes in the same change. Left in place, TRP001 would report `ProductCatalog` from
-both `ProductsComponent` and `application`, and the product list would be bound twice, so `/products` would list every
-product twice.
+only called `AddCatalog`, so its call goes in the same change. Left in place, its second binding of `ProductOptions`
+would fail `Build` with TRP022, and TRP001 would report `ProductCatalog` from both `ProductsComponent` and
+`application`.
 
 ### Listeners
 
@@ -137,10 +137,10 @@ usually from its ingress component. An application without entries keeps `--urls
 ## 3. Move one area at a time
 
 Move an area's registrations, the sections it reads, its middleware and its endpoints into its component, and delete
-them from `Program.cs` and the old extension methods in the same change. Leftovers are not reported reliably: a
-component's `TryAdd` silently yields to a registration `Program.cs` made first, a registration after `AddTroupe` only
-raises the TRP001 advisory, a second options binding is not reported at all, and an application `RemoveAll` of a
-component's service passes.
+them from `Program.cs` and the old extension methods in the same change. Some leftovers fail `Build`: a second
+configuration binding of a component's options type (TRP022), and a `RemoveAll` or `Replace` of a component's service
+after `AddTroupe` (TRP021). Others are not reported reliably: a component's `TryAdd` silently yields to a registration
+`Program.cs` made first, and a registration after `AddTroupe` only raises the TRP001 advisory.
 
 ```csharp
 public sealed class OrdersComponent : IComponent
@@ -189,27 +189,36 @@ policy on endpoint metadata, goes into a stage after the routing stage, or stays
 ### Extensions on the host builder
 
 Some libraries, such as .NET Aspire client integrations, extend `IHostApplicationBuilder` instead of
-`IServiceCollection`. A component
-contributes to the builder, and `Program.cs` applies the contributions with an explicit type argument; without it, the
-inferred `WebApplicationBuilder` leaves them unapplied (TRP008):
+`IServiceCollection`. A component calls them in `HostBuilder`, which runs inside `AddTroupe`:
 
 ```csharp
 component.ReadsConfiguration("ConnectionStrings:cache");
-component.Contribute<IHostApplicationBuilder>(host => host.AddRedisClient("cache"));
-
-// In ShopApplication.CreateBuilder, after AddTroupe
-builder.ApplyContributions<IHostApplicationBuilder>(builder);
+component.HostBuilder(host => host.AddRedisClient("cache"));
 ```
 
-The registrations made in the callback are owned by the component. Configuration sources added there come after
-`AddTroupe` checked the sections, so add them before `AddTroupe` instead.
+The registrations made in the callback, including logging and metrics, are owned by the component. The callback can
+read configuration and the environment but not change them, and it cannot add configuration sources, which belong
+before `AddTroupe`; such changes fail with TRP023. Contributions to a host builder type fail with TRP023 as well.
 
 ### Controllers and scanned endpoints
 
 MVC discovers controllers from application parts, by default every controller in the entry assembly, whatever the
 composition contains. One component owns `AddControllers()` and maps them once with `MapControllers()`; mapping them
-from two components maps every controller twice (TRP102). Endpoint groups found by reflection over an assembly behave
-the same way. In one process this changes nothing; see [splitting](#5-split-into-processes-optional) for roles.
+from two components maps every controller twice (TRP102).
+
+To serve each area's controllers only where the area is composed, the definition declares `ControllerClaims()` and
+each area's component claims its controllers' namespace:
+
+```csharp
+definition.ControllerClaims();                    // in ShopComposition.Define
+component.Controllers<OrdersController>();        // in OrdersComponent.Compose
+```
+
+A claim covers the namespace of the type argument and its child namespaces in its assembly, and the claiming
+component owns the endpoints. With the declaration, a controller no composed component claims is not served, so
+claim the controllers of every area, including the host's own. Claims of different components must not overlap
+(TRP109). Razor Pages and endpoint groups found by reflection over an assembly are not claimed: they are mapped in
+every process that maps them. See [ASP.NET Core](aspnetcore.md#controllers).
 
 ## 4. Verify
 
@@ -248,13 +257,14 @@ without the others:
   connections work only within one process.
 - **Transactions:** an operation whose transaction writes the data of two parts must run where it can write both;
   if the split puts those writes in different processes, the parts stay together or the operation changes.
-- **Discovery:** controllers and scanned endpoints of every part in one assembly are mapped in every process. Move each
-  part's controllers into its own assembly; the controllers component clears the application parts and each area's
-  component adds its own with `AddApplicationPart`.
+- **Discovery:** without controller claims, every process maps the controllers of every part. Claim each part's
+  controllers in its component ([controllers](#controllers-and-scanned-endpoints)). Razor Pages and scanned endpoints
+  are mapped wherever their mapping component is composed; give each part its own mapping in its component.
 
 Build the contracts a boundary needs before its parts run as separate processes. `CompositionVerifier.VerifyProfilesAsync`
 builds every profile. It finds a constructor dependency on a component the profile does not compose, but not one hidden
-in a service factory, an empty `IEnumerable<T>` or a minimal API parameter that becomes a request body. One profile that
+in a service factory, an empty `IEnumerable<T>` or a minimal API parameter that becomes a request body. With controller
+claims, it also fails for a controller that no profile maps (TRP108). One profile that
 runs every role, such as `combined`, keeps the single-process deployment.
 
 Merging several Host projects into one executable also merges what each host brings: its `appsettings*.json`, user

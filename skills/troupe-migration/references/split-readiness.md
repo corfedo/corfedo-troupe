@@ -28,7 +28,7 @@ For each finding record the file and line, the parts on both sides, and the cons
 | Transactions across parts | one `DbContext.SaveChanges`, `TransactionScope` or `BeginTransaction` writing tables of two parts; row locks one part takes for another. Find the operation that owns the transaction and the process it would run in | an operation that moves whole keeps its transaction; one whose writes would land in different processes loses atomicity and needs an outbox or saga, or the parts stay together |
 | Configuration per process | sections only one side reads; addresses of the other side | declare `ReadsConfigurationUnless<TOther>` for the address; each deployment gets only its sections |
 | Listeners | `KestrelEndpoint` declarations, ports, TLS certificates per part | each profile requests only its endpoints (TRP103) |
-| Discovery | controllers or scanned endpoints of several parts in one assembly; `AddControllers()` without application-part control | every process maps every part's endpoints; move each part's controllers into its own assembly and add its application part from its component |
+| Discovery | controllers of several parts without `definition.ControllerClaims()`; Razor Pages or scanned endpoints of several parts mapped by one component | every process maps every part's endpoints; claim each part's controllers in its component with `Controllers<TMarker>()`, and give pages and scanned endpoints a mapping per part in its component |
 | Identity and authorization | the authentication scheme setup, token validation and policies each part needs | each process needs its own validation setup; a part that issues tokens cannot be assumed local |
 
 ## Verdicts

@@ -14,7 +14,9 @@ builder.UseWolverine(options => builder.ApplyContributions(options));
 
 Contributions run in the composition's order. Registrations a contribution callback adds to the service collection
 are owned by its contributor; registrations the adapter makes itself are owned by the application. Removing another
-owner's registration fails with TRP003.
+owner's registration fails with TRP003. Host builders are not contribution targets: a component calls their extensions
+in `HostBuilder(...)` ([migrating](migrating.md#extensions-on-the-host-builder)), and a contribution to a host builder
+type fails with TRP023.
 
 `Build` checks that every contribution was applied. A contribution that no adapter applied fails with TRP008, and
 applying the same builder type twice fails as well. The [Messaging example](../../examples/Messaging) contributes
