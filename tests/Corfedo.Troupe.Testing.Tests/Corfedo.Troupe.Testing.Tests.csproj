@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Corfedo.Troupe.Testing/Corfedo.Troupe.Testing.csproj" />
+    <ProjectReference Include="../Fixtures/GeneratedBindings/GeneratedBindings.csproj" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3.mtp-off" />

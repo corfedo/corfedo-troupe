@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Corfedo.Troupe/Corfedo.Troupe.csproj" />
+  </ItemGroup>
+</Project>

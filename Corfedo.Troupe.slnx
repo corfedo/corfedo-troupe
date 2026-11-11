@@ -11,6 +11,7 @@
     <Project Path="tests/Corfedo.Troupe.Testing.Tests/Corfedo.Troupe.Testing.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Fixtures/">
+    <Project Path="tests/Fixtures/GeneratedBindings/GeneratedBindings.csproj" />
     <Project Path="tests/Fixtures/IncompleteMessagingArtifact/IncompleteMessagingArtifact.csproj" />
   </Folder>
   <Folder Name="/examples/">

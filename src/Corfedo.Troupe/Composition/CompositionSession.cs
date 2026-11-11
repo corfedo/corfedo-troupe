@@ -16,6 +16,7 @@ internal sealed class CompositionSession
     private readonly List<PendingContribution> contributions = [];
     private readonly List<StartupCheck> checks = [];
     private readonly Dictionary<Type, Action<IServiceProvider>> optionResolvers = [];
+    private readonly List<(CompositionOwner Owner, Type Type, string Section, Func<IServiceProvider, BindingTrace, int> Count)> bindings = [];
     private readonly HashSet<Type> appliedTargets = [];
     private readonly HashSet<Type> multiple = [];
     private readonly HashSet<(Type Type, object? Key)> exclusive = [];
@@ -97,6 +98,23 @@ internal sealed class CompositionSession
     }
     internal void RegisterOptions(Type type, Action<IServiceProvider> resolve)
     { RequirePhase(CompositionPhase.Composing); optionResolvers.Add(type, resolve); }
+    internal void RegisterBinding(CompositionOwner owner, Type type, string section, Func<IServiceProvider, BindingTrace, int> count)
+    { RequirePhase(CompositionPhase.Composing); bindings.Add((owner, type, section, count)); }
+    // A second configuration binding of an owned options type binds the section again, so collection properties repeat. Bindings
+    // are recognized by what their actions read, so the check runs them in the built provider, through a value-less provider
+    // added to the host configuration.
+    internal void CheckBindings(IServiceProvider services)
+    {
+        RequirePhase(CompositionPhase.Finalized);
+        if (bindings.Count == 0) return;
+        var trace = new BindingTrace();
+        ((IConfigurationBuilder)Configuration).Add(trace);
+        foreach (var (owner, type, section, count) in bindings)
+            if (count(services, trace) is var found and > 1)
+                throw Fail("TRP022", $"{owner.Name} owns options {type.FullName} bound to section {section}, and {found - 1} more configuration " +
+                    "binding(s) of its default instance exist; remove them.", owner);
+        bindings.Clear();
+    }
     internal void AddCheck(CompositionOwner owner, Func<IServiceProvider, CancellationToken, Task> callback)
     { RequirePhase(CompositionPhase.Composing); checks.Add(new(owner, callback)); }
     internal void AddContribution(CompositionOwner owner, Type target, Action<object> callback)

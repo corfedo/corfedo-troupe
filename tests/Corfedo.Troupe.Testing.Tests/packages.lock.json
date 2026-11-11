@@ -369,14 +369,20 @@
       "corfedo.troupe.aspnetcore": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.1, )"
+          "Corfedo.Troupe": "[0.2.0, )"
         }
       },
       "corfedo.troupe.testing": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.1, )",
-          "Corfedo.Troupe.AspNetCore": "[0.1.1, )"
+          "Corfedo.Troupe": "[0.2.0, )",
+          "Corfedo.Troupe.AspNetCore": "[0.2.0, )"
+        }
+      },
+      "generatedbindings": {
+        "type": "Project",
+        "dependencies": {
+          "Corfedo.Troupe": "[0.2.0, )"
         }
       },
       "Microsoft.Extensions.DependencyInjection": {
