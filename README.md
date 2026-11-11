@@ -175,6 +175,8 @@ step throws a `CompositionException` before the host starts.
 - **[Testing](docs/guides/testing.md):** verifying the composition and every profile, composing a slice, replacing
   services.
 - **[Diagnostics](docs/guides/diagnostics.md):** every `TRP` code and what to change.
+- **[Running Troupe profiles with Aspire](docs/guides/aspire.md):** one project resource per profile, endpoints for
+  its listeners, and every resource's composition checked before any resource starts.
 - **[Migrating an existing application](docs/guides/migrating.md):** moving `Program.cs` and `AddX()` extensions into
   components one area at a time, and checking whether parts can run separately. The
   [`troupe-migration`](skills/troupe-migration/SKILL.md) skill takes a coding agent through the same steps.

@@ -61,6 +61,7 @@ itself are owned by `application`. Every contribution must be applied exactly on
 | Environment-dependent pipeline (`if (app.Environment.IsDevelopment())`) | stays in `Program.cs`, or the component's `Use` callback reads `IHostEnvironment` from `application.ApplicationServices` | aspnetcore |
 | Startup database migration or seeding after `Build` | stays in `Program.cs`, or a `Check` when no hosted service's constructor depends on it; with roles it runs in every process (see split readiness) | composition |
 | Several Host projects, one `Program.cs` per service | one executable; profiles after the split-readiness analysis. Each host's `appsettings*.json`, user secrets ID, application name, content root, launch settings, Dockerfiles and orchestration references are merged or kept per profile deliberately | composition |
+| Aspire AppHost with one `AddProject` per Host project, `WithHttpEndpoint` per service, `Kestrel__Endpoints__*` set by hand | one `AddProject` of the single executable per profile with `WithTroupeProfile(name)` (or `WithArgs(...)` and `WithTroupe()` for the application's own command line) from `Corfedo.Troupe.Aspire.Hosting`; it adds an endpoint and Kestrel URL per listener and fails the AppHost on every resource's composition errors before anything starts | aspire |
 
 ## Tests and tools
 

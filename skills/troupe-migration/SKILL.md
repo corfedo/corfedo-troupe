@@ -8,7 +8,7 @@ description: Migrate a .NET application's host composition to Corfedo Troupe, an
 A migration ends in components that run in one process. Roles and profiles are a separate, optional step for
 applications whose parts must run on their own; most applications never take it. The tutorial for people is
 [Migrating an existing application](https://github.com/corfedo/corfedo-troupe/blob/main/docs/guides/migrating.md);
-the guides this skill refers to by name (composition, configuration, contributions, manifest, aspnetcore, testing,
+the guides this skill refers to by name (composition, configuration, contributions, manifest, aspnetcore, aspire, testing,
 diagnostics) are in `docs/guides/` of the Troupe repository at the tag of the version in use,
 `https://github.com/corfedo/corfedo-troupe/tree/v<version>/docs/guides`.
 
