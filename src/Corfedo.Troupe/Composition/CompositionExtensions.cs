@@ -35,6 +35,7 @@ public static class CompositionExtensions
             var session = new CompositionSession(builder, definition, profile, roles, nodes);
             builder.Properties.Add(typeof(CompositionSession), session);
             builder.ConfigureContainer(new CompositionProviderFactory(session));
+            HostBuildingObserver.Watch(builder.Properties, session);
             var initialize = definition.IntegrationFactory ?? nodes.Select(n => n.IntegrationFactory).FirstOrDefault(f => f is not null);
             if (initialize is not null) session.AttachIntegration(initialize(session));
             session.ValidateDeclarations();

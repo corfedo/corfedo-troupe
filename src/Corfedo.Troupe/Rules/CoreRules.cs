@@ -24,6 +24,11 @@ internal static class CoreRules
                      !consumers.Value.OnlyEnumerable(slot.Key.ServiceType))
                 yield return Diagnostic("TRP001", DiagnosticSeverity.Advisory, $"Service slot {slot.Key} repeats across {string.Join(", ", owners.Select(o => o.Name))}.", owners);
         }
+        // The application removed or replaced a contributor's occurrence: Program.cs code after AddTroupe or an adapter.
+        foreach (var lost in manifest.Services.Where(s => s.RemovedBy?.Kind == OwnerKind.Application && s.Owner.Kind is OwnerKind.Component or OwnerKind.Role)
+                     .GroupBy(s => s.Owner))
+            yield return Diagnostic("TRP021", DiagnosticSeverity.Error, $"application removed or replaced {string.Join(", ", lost.Select(s => $"{s.ServiceType} occurrence {s.Id}"))} " +
+                $"owned by {lost.Key.Name}. Change the registration in {lost.Key.Name}, or use a test override in tests.", [ServiceLedger.Application, lost.Key]);
         var hosted = active.Where(s => s.ServiceType == typeof(IHostedService) && s.Key is null).ToArray();
         foreach (var identity in hosted.Where(s => s.ImplementationType is not null).GroupBy(s => s.ImplementationType))
             if (identity.Count() > 1)

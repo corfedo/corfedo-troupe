@@ -14,7 +14,11 @@ internal sealed class ServiceLedger(IServiceCollection collection)
 
     private readonly Stack<CompositionOwner> attribution = new();
     private readonly List<CompositionDiagnostic> violations = [];
-    private CompositionOwner Current => attribution.Count > 0 ? attribution.Peek() : Application;
+    // Set when Build announces HostBuilding: changes a host-building listener (WebApplicationFactory, design-time tools) queues
+    // for Build are credited to this test owner instead of the application, and like application changes they are not guarded.
+    private CompositionOwner? hostBuilding;
+    private CompositionOwner Current => attribution.Count > 0 ? attribution.Peek() : hostBuilding ?? Application;
+    internal void BeginHostBuilding(CompositionOwner owner) { Synchronize(); hostBuilding = owner; }
     internal bool IsReadOnly => services.IsReadOnly;
 
     // Credits collection changes made since the last synchronization to the current attribution owner: the innermost contribution
@@ -28,7 +32,7 @@ internal sealed class ServiceLedger(IServiceCollection collection)
     private void Synchronize(bool guard)
     {
         var owner = Current;
-        var observed = owner == Application;
+        var observed = owner == Application || owner == hostBuilding;
         var counts = new Dictionary<ServiceDescriptor, int>(ReferenceEqualityComparer.Instance);
         foreach (var descriptor in services) counts[descriptor] = counts.GetValueOrDefault(descriptor) + 1;
         var available = new Dictionary<ServiceDescriptor, Queue<Occurrence>>(ReferenceEqualityComparer.Instance);

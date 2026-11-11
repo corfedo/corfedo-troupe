@@ -82,6 +82,12 @@ internal sealed class CompositionSession
             finally { guarded.Close(); }
         }));
     }
+    internal void BeginHostBuilding()
+    {
+        if (Phase != CompositionPhase.Configuring || ledger is null) return;
+        try { ledger.BeginHostBuilding(TestOwner("host")); }
+        catch (CompositionException exception) { throw RecordFailure(exception.Diagnostics, exception); }
+    }
     internal void RegisterFrameworkServices(IServiceCollection services)
     {
         RequirePhase(CompositionPhase.Composing);
