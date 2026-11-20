@@ -25,7 +25,8 @@ should look like, so each one, whether a person or a coding agent adds it, is wi
 Troupe gives every part of the host the same shape. A component declares the services it registers, the
 configuration it reads, the components it requires and what it contributes to builders the application owns. Troupe
 resolves and orders the components, records the owner of every registration, and stops startup with a diagnostic
-that names the owners when a section is missing, two components claim one service or a listener is not requested.
+that names the owners when a section is missing, two components register a service declared exclusive or a listener
+is not requested. Other services registered by several owners are reported as an advisory.
 When the application later runs as several processes, roles select components from the same declarations.
 
 ## Is it for you?
