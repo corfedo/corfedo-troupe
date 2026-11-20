@@ -38,7 +38,7 @@ jobs:
       - name: Native AOT smoke test
         shell: bash
         run: |
-          dotnet publish tests/Corfedo.Troupe.AotSmoke -c Release -r linux-x64 --no-restore -o artifacts/aot-smoke 2>&1 | tee aot-smoke.log
+          dotnet publish tests/Corfedo.Troupe.AotSmoke -c Release -r linux-x64 --no-restore -o artifacts/aot-smoke -p:TreatWarningsAsErrors=true -p:ContinuousIntegrationBuild=true 2>&1 | tee aot-smoke.log
           if grep -Eq 'warning (IL|CS)[0-9]+' aot-smoke.log; then echo "AOT smoke publish reported warnings" >&2; exit 1; fi
           artifacts/aot-smoke/Corfedo.Troupe.AotSmoke
 
