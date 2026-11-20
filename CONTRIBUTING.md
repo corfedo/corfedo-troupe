@@ -6,8 +6,14 @@ The .NET SDK version is pinned in `global.json`.
 dotnet restore --locked-mode
 dotnet build -c Release
 dotnet test -c Release --no-build
+dotnet publish tests/Corfedo.Troupe.AotSmoke -c Release -r linux-x64 --no-restore -o artifacts/aot-smoke
+artifacts/aot-smoke/Corfedo.Troupe.AotSmoke
 dotnet pack -c Release --no-build -o artifacts
 ```
+
+The smoke application runs `Corfedo.Troupe` and `Corfedo.Troupe.AspNetCore` as a Native AOT binary and prints `ok`. Use
+the runtime identifier of the machine (`linux-arm64`, `osx-arm64`); CI fails when the publish reports a trimming or
+AOT warning.
 
 Builds treat warnings as errors. Package versions are central in `Directory.Packages.props`, and every project
 commits its `packages.lock.json`. After changing a package reference or version, run `dotnet restore` without
