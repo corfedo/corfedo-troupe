@@ -200,7 +200,7 @@ whether an owner runs in this process. The [Operations example](examples/Operati
 
 ## Status and license
 
-This is version 0.3.0; the API may change before 1.0. Named options, live topology changes and third-party DI
+This is version 0.4.0; the API may change before 1.0. Named options, live topology changes and third-party DI
 containers are not supported yet. `Corfedo.Troupe` and `Corfedo.Troupe.AspNetCore` support trimming and Native AOT,
 except MVC controllers (see [configuration](docs/guides/configuration.md#native-aot)). Contributions are welcome through issues and pull requests.
 

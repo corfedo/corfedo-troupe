@@ -3,7 +3,7 @@
 Each row names what a migration meets, where it goes, and the guide that documents the target. Guides are in
 `docs/guides/` of the Troupe repository at the tag of the version in use
 (`https://github.com/corfedo/corfedo-troupe/tree/v<version>/docs/guides`). Behavior notes were checked against Troupe
-0.3.0, MassTransit 8.5 and MediatR 12.5.
+0.4.0, MassTransit 8.5 and MediatR 12.5.
 
 ## Services and configuration
 

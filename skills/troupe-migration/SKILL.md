@@ -27,8 +27,9 @@ Decide which outcome the user asked for, and confirm it if unclear:
 
 Then:
 
-- Find the Troupe version the application references or will reference. This skill describes 0.3.0
-  (`AddTroupe<T>()`, `definition.Requires<T>()`, typed profiles, `HostBuilder`, controller claims). For another version, read that version's README and
+- Find the Troupe version the application references or will reference. This skill describes 0.4.0
+  (`AddTroupe<T>()`, `definition.Requires<T>()`, typed profiles, `HostBuilder`, controller claims, `IRole.Name`,
+  `Options<T>(section, bind)`). For another version, read that version's README and
   guides at its tag and follow them where they differ; the API changes before 1.0.
 - Read the repository's agent instructions (`AGENTS.md`, `CLAUDE.md`, contribution guides). Their rules on branches,
   commits, tests and dependencies apply to every step below.
