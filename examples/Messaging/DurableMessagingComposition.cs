@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Corfedo.Troupe.AspNetCore;
 using Microsoft.Extensions.Options;
 using Wolverine;
@@ -49,7 +50,7 @@ public sealed class NotificationsQueue : IComponent
 public sealed class PostgresMessaging : IComponent
 {
     public void Compose(IComponentBuilder component) =>
-        component.Options<PostgresMessagingOptions, PostgresMessagingValidator>("Messaging");
+        component.Options<PostgresMessagingOptions, PostgresMessagingValidator>("Messaging", (section, options) => section.Bind(options));
 }
 
 public sealed class PostgresMessagingOptions

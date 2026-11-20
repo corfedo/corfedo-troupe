@@ -11,8 +11,8 @@ parts of the application must run on their own.
 - Troupe builds the service provider with `ValidateOnBuild` and `ValidateScopes`. Remove `ConfigureContainer`,
   `Host.UseServiceProviderFactory` and `Host.UseDefaultServiceProvider` (TRP018). A captive scoped dependency that
   never failed before now fails `Build`.
-- Third-party containers such as Autofac and named options through `Options<T>` are not supported. A Native AOT
-  application passes a binder to `Options<T>` ([configuration](configuration.md#native-aot)).
+- Third-party containers such as Autofac and named options through `Options<T>` are not supported. For Native AOT,
+  see [configuration](configuration.md#native-aot).
 - Packages: `Corfedo.Troupe` in every project that holds components and in the Host, `Corfedo.Troupe.AspNetCore` where
   components declare middleware, endpoints or listeners, and `Corfedo.Troupe.Testing` in the test project.
 - Have tests that start the application and send a request to each area before you begin, so that a failure during
@@ -108,7 +108,7 @@ public sealed class ProductsComponent : IComponent
 {
     public void Compose(IComponentBuilder component)
     {
-        component.Options<ProductOptions>("Products");
+        component.Options<ProductOptions>("Products", (section, options) => section.Bind(options));
         component.Services(services => services.AddSingleton<ProductCatalog>());
     }
 }
@@ -170,7 +170,7 @@ earlier.
 
 | Before | In a component |
 | --- | --- |
-| `services.Configure<T>(configuration.GetSection("X"))` | `Options<T>("X")`, or `Options<T, TValidator>` |
+| `services.Configure<T>(configuration.GetSection("X"))` | `Options<T>("X", (section, options) => section.Bind(options))`, or `Options<T, TValidator>` |
 | `configuration["X"]` or `GetConnectionString` at registration | `ReadsConfiguration("X")` and read `IConfiguration` in a factory, such as `AddDbContext<T>((provider, options) => ...)` |
 | `AddOptions<T>("name").BindConfiguration(...)` | the same call in `Services`, with `ReadsConfiguration` |
 | `if (configuration["Storage:Kind"] == ...)` choosing a registration | register the candidates and choose in a factory. A candidate with its own hosted services, listeners or required sections is a component of its own: the definition or a profile chooses components, configuration does not |

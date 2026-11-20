@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Corfedo.Troupe;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,7 +23,7 @@ public sealed class HeartbeatComponent : IComponent
 
 public sealed class WorkerSettingsComponent : IComponent
 {
-    public void Compose(IComponentBuilder component) => component.Options<HeartbeatOptions, HeartbeatValidator>("Worker");
+    public void Compose(IComponentBuilder component) => component.Options<HeartbeatOptions, HeartbeatValidator>("Worker", (section, options) => section.Bind(options));
 }
 
 public sealed class HeartbeatOptions

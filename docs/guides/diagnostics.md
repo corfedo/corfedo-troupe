@@ -9,7 +9,7 @@ diagnostics are written to the description instead of thrown.
 
 | Code | Meaning | Change |
 | --- | --- | --- |
-| TRP001 | Advisory: several owners register the same service type, unless every constructor that takes it takes `IEnumerable<T>` | Declare `MultipleAllowed<T>()` if intended |
+| TRP001 | Advisory: several owners register the same service type, unless every constructor of a type the container constructs that takes it takes `IEnumerable<T>` | Declare `MultipleAllowed<T>()` if intended |
 | TRP002 | A hosted service is registered more than once | Register it in one component |
 | TRP003 | An owner removed or replaced another owner's registration | Remove it in its owner, or use `ReplaceForTest` in tests |
 | TRP004 | An `ExclusiveService<T>()` slot has several registrations | Keep one registration |

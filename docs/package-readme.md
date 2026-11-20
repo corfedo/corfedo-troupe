@@ -26,7 +26,7 @@ public sealed class HeartbeatComponent : IComponent
 {
     public void Compose(IComponentBuilder component)
     {
-        component.Options<HeartbeatOptions>("Worker");
+        component.Options<HeartbeatOptions>("Worker", (section, options) => section.Bind(options));
         component.Services(services => services.AddHostedService<HeartbeatService>());
     }
 }

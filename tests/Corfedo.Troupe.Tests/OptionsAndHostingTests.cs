@@ -13,12 +13,12 @@ public sealed class OptionsAndHostingTests
     private static HostApplicationBuilder OptionsBuilder(string value = "2")
     {
         var builder = Builder("a"); builder.Configuration["Probe:Count"] = value;
-        A.Declare = r => r.Options<Probe, Positive>("Probe"); return builder;
+        A.Declare = r => r.Options<Probe, Positive>("Probe", (section, options) => section.Bind(options)); return builder;
     }
     [Fact]
     public void MissingRequiredConfigurationIsAnErrorAndManifestContainsOnlyDeclaredReads()
     {
-        A.Declare = r => { r.Options<Probe>("Secret"); r.ReadsConfiguration("Manual"); };
+        A.Declare = r => { r.Options<Probe>("Secret", (section, options) => section.Bind(options)); r.ReadsConfiguration("Manual"); };
         var error = Assert.Throws<CompositionException>(() => Builder("a").AddTroupe<Definition>());
         Assert.Equal(2, error.Diagnostics.Count(d => d.Code == "TRP005"));
         Assert.Equal(["Secret", "Manual"], error.Manifest!.Configuration.Select(c => c.Section));
@@ -50,7 +50,7 @@ public sealed class OptionsAndHostingTests
     public void SecondDeclarationForAnOptionsTypeIsAnError(string section)
     {
         var builder = OptionsBuilder(); builder.Configuration["Roles"] = "a,b";
-        B.Declare = r => r.Options<Probe>(section);
+        B.Declare = r => r.Options<Probe>(section, (configuration, options) => configuration.Bind(options));
         Assert.Contains("TRP007", Assert.Throws<CompositionException>(() => builder.AddTroupe<Definition>()).Message);
     }
     [Fact]
@@ -59,7 +59,7 @@ public sealed class OptionsAndHostingTests
         var builder = OptionsBuilder();
         A.Declare = r =>
         {
-            r.Options<Probe, Positive>("Probe");
+            r.Options<Probe, Positive>("Probe", (section, options) => section.Bind(options));
             r.Services(s => { s.AddSingleton<ValidationDependency>(); s.AddSingleton<IValidateOptions<Probe>, Even>(); });
         };
         var manifest = builder.AddTroupe<Definition>();
@@ -70,23 +70,14 @@ public sealed class OptionsAndHostingTests
         Assert.Single(manifest.Configuration, r => r.OptionsType == typeof(Probe));
         Assert.DoesNotContain(manifest.Diagnostics, d => d.Code == "TRP001");
         var bad = OptionsBuilder("3");
-        A.Declare = r => { r.Options<Probe, Positive>("Probe"); r.Services(s => { s.AddSingleton<ValidationDependency>(); s.AddSingleton<IValidateOptions<Probe>, Even>(); }); };
+        A.Declare = r => { r.Options<Probe, Positive>("Probe", (section, options) => section.Bind(options)); r.Services(s => { s.AddSingleton<ValidationDependency>(); s.AddSingleton<IValidateOptions<Probe>, Even>(); }); };
         bad.AddTroupe<Definition>(); using var badHost = bad.Build();
         Assert.Contains("even", Assert.Throws<OptionsValidationException>(() => badHost.Services.GetRequiredService<IOptions<Probe>>().Value).Message);
     }
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void OwnedOptionsBindAndReloadWithEitherBinder(bool binder)
+    [Fact]
+    public void OwnedOptionsReloadWithTheConfiguration()
     {
-        var builder = Builder("a"); builder.Configuration["Probe:Count"] = "2";
-        A.Declare = r =>
-        {
-            if (binder) r.Options<Probe, Positive>("Probe", (section, probe) => section.Bind(probe));
-            else r.Options<Probe, Positive>("Probe");
-        };
-        var manifest = builder.AddTroupe<Definition>();
-        Assert.Single(manifest.Configuration, r => r.OptionsType == typeof(Probe) && r.Section == "Probe" && r.Required);
+        var builder = OptionsBuilder(); builder.AddTroupe<Definition>();
         using var host = builder.Build();
         var monitor = host.Services.GetRequiredService<IOptionsMonitor<Probe>>();
         Assert.Equal(2, monitor.CurrentValue.Count);
@@ -95,22 +86,13 @@ public sealed class OptionsAndHostingTests
         Assert.Equal(4, monitor.CurrentValue.Count);
     }
     [Fact]
-    public void BinderOverloadsKeepSectionOwnership()
-    {
-        A.Declare = r => r.Options<Probe>("Secret", (section, probe) => section.Bind(probe));
-        Assert.Contains(Assert.Throws<CompositionException>(() => Builder("a").AddTroupe<Definition>()).Diagnostics, d => d.Code == "TRP005");
-        var builder = OptionsBuilder(); builder.Configuration["Roles"] = "a,b";
-        B.Declare = r => r.Options<Probe>("Probe", (section, probe) => section.Bind(probe));
-        Assert.Contains("TRP007", Assert.Throws<CompositionException>(() => builder.AddTroupe<Definition>()).Message);
-    }
-    [Fact]
     public async Task ConstructorAndStartupValidationPrecedeSequentialChecksAndServiceStart()
     {
         var events = new List<string>();
         var builder = OptionsBuilder();
         A.Declare = r =>
         {
-            r.Options<Probe>("Probe");
+            r.Options<Probe>("Probe", (section, options) => section.Bind(options));
             r.Services(s =>
             {
                 s.AddSingleton<IValidateOptions<Probe>>(new RecordingValidator(events));
@@ -219,7 +201,7 @@ public sealed class OptionsAndHostingTests
     public async Task OptionalAbsentSectionsBindDefaultsWithoutBecomingTopologyConditions()
     {
         var builder = Builder("a");
-        A.Declare = r => { r.Options<Probe>("Absent", required: false); r.ReadsConfiguration("Optional", required: false); };
+        A.Declare = r => { r.Options<Probe>("Absent", (section, options) => section.Bind(options), required: false); r.ReadsConfiguration("Optional", required: false); };
         var manifest = builder.AddTroupe<Definition>(); using var host = builder.Build();
         Assert.Equal(0, host.Services.GetRequiredService<IOptions<Probe>>().Value.Count);
         Assert.All(manifest.Configuration, c => Assert.False(c.Required));
@@ -232,7 +214,7 @@ public sealed class OptionsAndHostingTests
         var state = new ResourceState(); var builder = OptionsBuilder("-1");
         A.Declare = r =>
         {
-            r.Options<Probe, Positive>("Probe");
+            r.Options<Probe, Positive>("Probe", (section, options) => section.Bind(options));
             r.Services(s =>
             {
                 s.AddSingleton(_ => new Resource(state));

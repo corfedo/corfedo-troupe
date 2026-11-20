@@ -20,7 +20,8 @@ public sealed class OrdersConsumer : IComponent
 `Check(...)` records a startup check that runs before hosted services start. `ExclusiveService<T>()` allows at most
 one registration of `T` (TRP004). When several owners register the same service type, Troupe reports the TRP001
 advisory; `MultipleAllowed<T>()` declares that this is intended. A type that every consuming constructor takes as
-`IEnumerable<T>`, such as MVC's `MatcherPolicy`, is an extension point and is not reported.
+`IEnumerable<T>`, such as MVC's `MatcherPolicy`, is an extension point and is not reported. Consumers are the types the
+container constructs; registered instances and factories are not visible.
 
 ## The definition
 

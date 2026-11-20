@@ -45,7 +45,7 @@ public sealed class VerifierTests
     {
         A.Declare = r =>
         {
-            r.Options<Probe>("Probe");
+            r.Options<Probe>("Probe", (section, options) => section.Bind(options));
             r.Services(s =>
             {
                 s.AddSingleton<IValue, Original>();
@@ -74,7 +74,7 @@ public sealed class VerifierTests
         {
             A.Declare = r =>
             {
-                r.Options<Probe>("Probe");
+                r.Options<Probe>("Probe", (section, options) => section.Bind(options));
                 r.Services(s =>
                 {
                     s.AddSingleton(_ => { created++; return new AsyncResource(() => disposed++); });
@@ -94,7 +94,7 @@ public sealed class VerifierTests
         var disposed = 0;
         A.Declare = r =>
         {
-            r.Options<Probe>("Probe");
+            r.Options<Probe>("Probe", (section, options) => section.Bind(options));
             r.Services(s =>
             {
                 s.AddSingleton(_ => new AsyncResource(() => { disposed++; throw new InvalidOperationException("cleanup failed"); }));
@@ -110,7 +110,7 @@ public sealed class VerifierTests
     [Fact]
     public async Task RequiredOptionsAndBuildValidationFailuresCarryProfileAndManifest()
     {
-        A.Declare = r => r.Options<Probe>("Absent");
+        A.Declare = r => r.Options<Probe>("Absent", (section, options) => section.Bind(options));
         B.Declare = r => r.Services(s => s.AddSingleton<NeedsMissing>());
         var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(Builder, cancellationToken: TestContext.Current.CancellationToken);
         Assert.False(result.Succeeded); Assert.Equal(2, result.Failures.Count);
@@ -169,7 +169,7 @@ public sealed class VerifierTests
         var disposed = 0;
         A.Declare = r =>
         {
-            r.Options<Probe>("Probe");
+            r.Options<Probe>("Probe", (section, options) => section.Bind(options));
             r.Services(s =>
             {
                 s.AddSingleton(_ => new AsyncResource(() => disposed++));
@@ -186,7 +186,7 @@ public sealed class VerifierTests
         var disposed = 0;
         A.Declare = r =>
         {
-            r.Options<Probe>("Probe");
+            r.Options<Probe>("Probe", (section, options) => section.Bind(options));
             r.Services(s =>
             {
                 s.AddSingleton(_ => new AsyncResource(() => disposed++));
@@ -204,12 +204,12 @@ public sealed class VerifierTests
         var included = new Dictionary<string, bool>();
         A.Declare = r =>
         {
-            r.Requires<Remote>(); r.Options<Probe>("Probe");
+            r.Requires<Remote>(); r.Options<Probe>("Probe", (section, options) => section.Bind(options));
             r.Services(s => s.AddOptions<Probe>().Configure<IComposition>((_, c) => included["a"] = c.Includes<Remote>()));
         };
         B.Declare = r =>
         {
-            r.ReadsConfigurationUnless<Remote>("Remote"); r.Options<Probe>("Probe");
+            r.ReadsConfigurationUnless<Remote>("Remote"); r.Options<Probe>("Probe", (section, options) => section.Bind(options));
             r.Services(s => s.AddOptions<Probe>().Configure<IComposition>((_, c) => included["b"] = c.Includes<Remote>()));
         };
         var result = await CompositionVerifier.VerifyProfilesAsync<Definition>(Builder, cancellationToken: TestContext.Current.CancellationToken);

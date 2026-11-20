@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
@@ -18,7 +19,7 @@ public sealed class InternalListener : IComponent
     public void Compose(IComponentBuilder component)
     {
         component.Requires<Routing>();
-        component.Options<InternalListenerOptions, InternalListenerValidator>("Internal");
+        component.Options<InternalListenerOptions, InternalListenerValidator>("Internal", (section, options) => section.Bind(options));
         component.Services(services => services.AddSingleton<CallerTrust>());
         component.KestrelEndpoint("internal", InternalTls.Configure);
         component.Use("internal", application => application.Use(OperationEndpoint.Admit));

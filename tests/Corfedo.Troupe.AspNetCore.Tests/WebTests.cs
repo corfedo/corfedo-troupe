@@ -247,7 +247,7 @@ public sealed class WebTests
     [Fact]
     public void BuilderSnapshotOfACompositionThatFailedBeforeItsActionsIsIncomplete()
     {
-        A.Declare = r => r.Options<Probe>("Probe"); B.Declare = r => r.Options<Probe>("Probe");
+        A.Declare = r => r.Options<Probe>("Probe", (section, options) => section.Bind(options)); B.Declare = r => r.Options<Probe>("Probe", (section, options) => section.Bind(options));
         var declarations = Builder();
         Assert.Contains("TRP007", Assert.Throws<CompositionException>(() => declarations.AddTroupe<Definition>()).Message);
         var incomplete = declarations.AspNetComposition()!;

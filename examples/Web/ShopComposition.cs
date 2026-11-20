@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Corfedo.Troupe.AspNetCore;
 using Microsoft.Extensions.Options;
 
@@ -38,7 +39,7 @@ public sealed class ProductsComponent : IComponent
 {
     public void Compose(IComponentBuilder component)
     {
-        component.Options<ProductOptions>("Products");
+        component.Options<ProductOptions>("Products", (section, options) => section.Bind(options));
         component.Services(services => services.AddSingleton<ProductCatalog>());
     }
 }

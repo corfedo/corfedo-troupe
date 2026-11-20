@@ -4,24 +4,30 @@ using static Corfedo.Troupe.Testing.Tests.TestHosts;
 
 namespace Corfedo.Troupe.Testing.Tests.ServiceSlots;
 
-// A service slot repeated across owners is reported unless every visible constructor consumer takes IEnumerable<T>.
+// A service slot repeated across owners is reported unless every constructor consumer of a type the container constructs
+// takes IEnumerable<T>; a registered instance is not a consumer.
 public sealed class ServiceSlotTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task DuplicateServicesWarnForSingleConsumersAndAllowEnumerableConsumers(bool single)
+    [InlineData("single", true)]
+    [InlineData("enumerable", false)]
+    [InlineData("enumerable-instance", true)]
+    public async Task DuplicateServicesWarnUnlessConstructedConsumersTakeEnumerables(string consumer, bool reported)
     {
         var result = await CompositionVerifier.VerifyAsync<SendersDefinition>(() =>
         {
             var builder = Generic();
             builder.Services.AddSingleton<ISender, SenderOne>();
-            if (single) builder.Services.AddSingleton<SingleConsumer>();
-            else builder.Services.AddSingleton<EnumerableConsumer>();
+            _ = consumer switch
+            {
+                "single" => builder.Services.AddSingleton<SingleConsumer>(),
+                "enumerable" => builder.Services.AddSingleton<EnumerableConsumer>(),
+                _ => builder.Services.AddSingleton(new EnumerableConsumer([])),
+            };
             return builder;
         }, cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(result.Succeeded);
-        Assert.Equal(single, result.Profiles.Single().Manifest!.Diagnostics.Any(d => d.Code == "TRP001" && d.Message.Contains(nameof(ISender))));
+        Assert.Equal(reported, result.Profiles.Single().Manifest!.Diagnostics.Any(d => d.Code == "TRP001" && d.Message.Contains(nameof(ISender))));
     }
 }
 

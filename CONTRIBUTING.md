@@ -16,8 +16,8 @@ the runtime identifier of the machine (`linux-arm64`, `osx-arm64`); CI fails whe
 AOT warning.
 
 Builds treat warnings as errors. Package versions are central in `Directory.Packages.props`, and every project
-commits its `packages.lock.json`. After changing a package reference or version, run `dotnet restore` without
-`--locked-mode` and commit the updated lock files; CI restores in locked mode and fails on stale lock files.
+commits its `packages.lock.json`. After changing a package reference or version, or the SDK in `global.json` (the trimming and
+AOT compiler packages follow the SDK), run `dotnet restore` without `--locked-mode` and commit the updated lock files; CI restores in locked mode and fails on stale lock files.
 
 The Aspire host projects (`examples/Aspire`, `tests/Corfedo.Troupe.Aspire.Hosting.Tests`) restore DCP and the
 dashboard for the build machine's runtime identifier, so they keep one lock file per platform:

@@ -84,7 +84,7 @@ public sealed class ProductsComponent : IComponent
 {
     public void Compose(IComponentBuilder component)
     {
-        component.Options<ProductOptions>("Products");
+        component.Options<ProductOptions>("Products", (section, options) => section.Bind(options));
         component.Services(services => services.AddSingleton<ProductCatalog>());
     }
 }
@@ -202,8 +202,7 @@ whether an owner runs in this process. The [Operations example](examples/Operati
 
 This is version 0.3.0; the API may change before 1.0. Named options, live topology changes and third-party DI
 containers are not supported yet. `Corfedo.Troupe` and `Corfedo.Troupe.AspNetCore` support trimming and Native AOT,
-except MVC controllers; options then bind through a binder passed to `Options<T>` (see
-[configuration](docs/guides/configuration.md#native-aot)). Contributions are welcome through issues and pull requests.
+except MVC controllers (see [configuration](docs/guides/configuration.md#native-aot)). Contributions are welcome through issues and pull requests.
 
 Troupe is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for the reservation of Corfedo names, logos and
 brand assets.

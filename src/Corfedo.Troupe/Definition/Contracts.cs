@@ -63,24 +63,15 @@ public interface IContributorBuilder
     /// <c>ConfigureContainer</c>, and use of the builder after the callback returns.
     /// </remarks>
     void HostBuilder(Action<IHostApplicationBuilder> configure);
-    /// <summary>Binds one owned section to default options, with required presence validation and ValidateOnStart.</summary>
-    /// <remarks>Binds by reflection. Trimmed and Native AOT applications use the overload that takes a binder.</remarks>
-    [RequiresUnreferencedCode(OwnedOptions.ReflectionBinding)]
-    [RequiresDynamicCode(OwnedOptions.ReflectionBinding)]
-    void Options<T>(string section, bool required = true) where T : class, new();
-    /// <summary>Binds owned options and explicitly registers a DI-constructed validator.</summary>
-    /// <remarks>Binds by reflection. Trimmed and Native AOT applications use the overload that takes a binder.</remarks>
-    [RequiresUnreferencedCode(OwnedOptions.ReflectionBinding)]
-    [RequiresDynamicCode(OwnedOptions.ReflectionBinding)]
-    void Options<T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TValidator>(string section, bool required = true)
-        where T : class, new() where TValidator : class, IValidateOptions<T>;
     /// <summary>
     /// Binds one owned section to default options with <paramref name="bind"/>, which receives the section, with required
     /// presence validation and ValidateOnStart.
     /// </summary>
     /// <remarks>
     /// A binder such as <c>(section, options) =&gt; section.Bind(options)</c> names the options type at the call site, so the
-    /// configuration binding source generator replaces it in trimmed and Native AOT applications.
+    /// configuration binding source generator replaces it in trimmed and Native AOT applications. The SDK turns the
+    /// generator on only with <c>PublishAot</c> or <c>PublishTrimmed</c>; a component library sets
+    /// <c>EnableConfigurationBindingGenerator</c>.
     /// </remarks>
     void Options<T>(string section, Action<IConfiguration, T> bind, bool required = true) where T : class, new();
     /// <summary>Binds owned options with <paramref name="bind"/> and explicitly registers a DI-constructed validator.</summary>

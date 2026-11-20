@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Runtime.CompilerServices;
 using Corfedo.Troupe.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,7 +29,7 @@ public sealed class CompositionBoundaryTests
             {
                 case "Requires": role.Requires<Store>(); break;
                 case "Services": role.Services(_ => { }); break;
-                case "Options": role.Options<Probe>("Probe"); break;
+                case "Options": role.Options<Probe>("Probe", (section, options) => section.Bind(options)); break;
                 case "ReadsConfiguration": role.ReadsConfiguration("Probe", false); break;
                 case "Contribute": role.Contribute<List<string>>(_ => { }); break;
                 case "Check": role.Check((_, _) => Task.CompletedTask); break;
@@ -54,8 +55,8 @@ public sealed class CompositionBoundaryTests
     public void DuplicateOwnedOptionsFailBeforeAnyServiceCallback()
     {
         var callbacks = 0;
-        A.Declare = r => { r.Services(_ => callbacks++); r.Options<Probe>("A"); };
-        B.Declare = r => r.Options<Probe>("B");
+        A.Declare = r => { r.Services(_ => callbacks++); r.Options<Probe>("A", (section, options) => section.Bind(options)); };
+        B.Declare = r => r.Options<Probe>("B", (section, options) => section.Bind(options));
         var exception = Assert.Throws<CompositionException>(() => Builder().AddTroupe<Definition>());
         Assert.Equal(0, callbacks);
         Assert.Contains(exception.Manifest!.Diagnostics, d => d.Code == "TRP007" && d.Owners.Count == 2);

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Corfedo.Troupe.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -121,7 +122,7 @@ public sealed class TestCompositionTests
     [Fact]
     public void RootOptionsAreValidatedAndOwnedByTheRoot()
     {
-        var error = Assert.Throws<CompositionException>(() => Builder().ComposeForTest<Definition>(root => root.Options<Probe>("Probe"), "slice"));
+        var error = Assert.Throws<CompositionException>(() => Builder().ComposeForTest<Definition>(root => root.Options<Probe>("Probe", (section, options) => section.Bind(options)), "slice"));
         var diagnostic = Assert.Single(error.Diagnostics);
         Assert.Equal("TRP005", diagnostic.Code); Assert.Equal([Root], diagnostic.Owners);
         Assert.Equal(Root, Assert.Single(error.Manifest!.Configuration).Owner);

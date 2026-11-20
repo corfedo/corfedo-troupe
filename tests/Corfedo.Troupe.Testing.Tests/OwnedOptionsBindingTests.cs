@@ -80,21 +80,10 @@ public sealed class OwnedOptionsBindingTests
         var builder = Generic(new() { ["Owned:Values:0"] = "a" });
         builder.AddTroupe<GeneratedOptionsDefinition>();
         GeneratedBinding.Add(binding, builder.Services, builder.Configuration, "Owned");
-        var exception = Record.Exception(() => { using var host = builder.Build(); });
+        List<string>? values = null;
+        var exception = Record.Exception(() => { using var host = builder.Build(); values = host.Services.GetRequiredService<IOptions<GeneratedOwned>>().Value.Values; });
         Assert.Equal(rejected, exception is CompositionException c && c.Diagnostics.Any(d => d.Code == "TRP022"));
-        if (!rejected) Assert.Null(exception);
-    }
-
-    [Fact]
-    public void BinderOfOwnedOptionsIsTheirOneBinding()
-    {
-        var builder = Generic(new() { ["Owned:Values:0"] = "a" });
-        builder.AddTroupe<BinderOptionsDefinition>();
-        using (var host = builder.Build())
-            Assert.Equal(["a"], host.Services.GetRequiredService<IOptions<Owned>>().Value.Values);
-        var second = Generic(new() { ["Owned:Values:0"] = "a" });
-        second.AddTroupe<BinderSecondBindingDefinition>();
-        Assert.Contains(Assert.Throws<CompositionException>(() => second.Build()).Diagnostics, d => d.Code == "TRP022");
+        if (!rejected) { Assert.Null(exception); Assert.Equal(["a"], values); }
     }
 
     [Fact]
@@ -109,29 +98,16 @@ public sealed class OwnedOptionsBindingTests
     }
 }
 
-public sealed class BinderOptionsDefinition : ICompositionDefinition { public void Define(ICompositionDefinitionBuilder d) => d.Requires<BinderOptionsComponent>(); }
-public sealed class BinderOptionsComponent : IComponent
-{ public void Compose(IComponentBuilder c) => c.Options<Owned>("Owned", (section, owned) => section.Bind(owned), required: false); }
-public sealed class BinderSecondBindingDefinition : ICompositionDefinition { public void Define(ICompositionDefinitionBuilder d) => d.Requires<BinderSecondBindingComponent>(); }
-public sealed class BinderSecondBindingComponent : IComponent
-{
-    public void Compose(IComponentBuilder c)
-    {
-        c.Options<Owned>("Owned", (section, owned) => section.Bind(owned), required: false);
-        c.Services(s => s.AddOptions<Owned>().BindConfiguration("Owned"));
-    }
-}
 public sealed class Owned { public List<string> Values { get; set; } = []; public string Label { get; set; } = ""; }
 public sealed class OptionsDefinition : ICompositionDefinition { public void Define(ICompositionDefinitionBuilder d) => d.Requires<OptionsComponent>(); }
-public sealed class OptionsComponent : IComponent { public void Compose(IComponentBuilder c) => c.Options<Owned>("Owned", required: false); }
+public sealed class OptionsComponent : IComponent { public void Compose(IComponentBuilder c) => c.Options<Owned>("Owned", (section, options) => section.Bind(options), required: false); }
 public sealed class GeneratedOptionsDefinition : ICompositionDefinition { public void Define(ICompositionDefinitionBuilder d) => d.Requires<GeneratedOptionsComponent>(); }
-public sealed class GeneratedOptionsComponent : IComponent { public void Compose(IComponentBuilder c) => c.Options<GeneratedOwned>("Owned", required: false); }
 public sealed class SecondBindingDefinition : ICompositionDefinition { public void Define(ICompositionDefinitionBuilder d) => d.Requires<SecondBindingComponent>(); }
 public sealed class SecondBindingComponent : IComponent
 {
     public void Compose(IComponentBuilder c)
     {
-        c.Options<Owned>("Owned", required: false);
+        c.Options<Owned>("Owned", (section, options) => section.Bind(options), required: false);
         c.Services(s => s.AddOptions<Owned>().BindConfiguration("Owned"));
     }
 }
