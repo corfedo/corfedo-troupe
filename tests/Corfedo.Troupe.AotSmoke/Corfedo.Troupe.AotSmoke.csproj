@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Corfedo.Troupe.AspNetCore/Corfedo.Troupe.AspNetCore.csproj" />
+    <ProjectReference Include="../Corfedo.Troupe.AotSmoke.Components/Corfedo.Troupe.AotSmoke.Components.csproj" />
   </ItemGroup>
 </Project>

@@ -17,6 +17,12 @@
       "corfedo.troupe": {
         "type": "Project"
       },
+      "corfedo.troupe.aotsmoke.components": {
+        "type": "Project",
+        "dependencies": {
+          "Corfedo.Troupe": "[0.3.0, )"
+        }
+      },
       "corfedo.troupe.aspnetcore": {
         "type": "Project",
         "dependencies": {

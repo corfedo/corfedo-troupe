@@ -1,12 +1,13 @@
 using Corfedo.Troupe;
 using Corfedo.Troupe.AspNetCore;
+using Corfedo.Troupe.AotSmoke.Components;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 
 // Runs Troupe in a Native AOT binary. The first host selects the "all" profile of two roles, binds options with a nested
-// object and a list through the caller's binder, validates them, composes a slot that two components fill and one
+// object and a list through a binder in a component library, validates them, composes a slot that two components fill and one
 // consumer takes as IEnumerable<T> (no TRP001), runs a middleware stage on a named Kestrel endpoint and answers one
 // request. The second host lacks a required section and fails with TRP005. The third host has invalid options and its
 // validator fails startup.
@@ -122,12 +123,6 @@ public sealed class IngressComponent : IComponent
     }
 }
 
-public sealed class FeedComponent : IComponent
-{
-    public void Compose(IComponentBuilder component) =>
-        component.Options<FeedOptions, FeedValidator>("Feed", (section, options) => section.Bind(options));
-}
-
 public sealed class FirstSource : IComponent
 {
     public void Compose(IComponentBuilder component) => component.Services(services =>
@@ -140,24 +135,6 @@ public sealed class FirstSource : IComponent
 public sealed class SecondSource : IComponent
 {
     public void Compose(IComponentBuilder component) => component.Services(services => services.AddSingleton<IFeedSource>(new NamedSource("second")));
-}
-
-public sealed class FeedOptions
-{
-    public string Name { get; set; } = "";
-    public RetryOptions Retry { get; set; } = new();
-    public List<string> Tags { get; set; } = [];
-}
-
-public sealed class RetryOptions
-{
-    public int Count { get; set; }
-}
-
-public sealed class FeedValidator : IValidateOptions<FeedOptions>
-{
-    public ValidateOptionsResult Validate(string? name, FeedOptions options) =>
-        options.Retry.Count > 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail("Feed:Retry:Count must be positive.");
 }
 
 public interface IFeedSource
