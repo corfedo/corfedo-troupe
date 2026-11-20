@@ -71,7 +71,7 @@
       "corfedo.troupe.aspnetcore": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.1, )"
+          "Corfedo.Troupe": "[0.3.0, )"
         }
       },
       "Microsoft.Extensions.DependencyInjection": {

@@ -572,13 +572,13 @@
       "corfedo.troupe.aspnetcore": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe": "[0.1.1, )"
+          "Corfedo.Troupe": "[0.3.0, )"
         }
       },
       "messaging": {
         "type": "Project",
         "dependencies": {
-          "Corfedo.Troupe.AspNetCore": "[0.1.1, )",
+          "Corfedo.Troupe.AspNetCore": "[0.3.0, )",
           "WolverineFx": "[6.41.0, )",
           "WolverineFx.Postgresql": "[6.41.0, )",
           "WolverineFx.RuntimeCompilation": "[6.41.0, )"
