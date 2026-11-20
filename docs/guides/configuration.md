@@ -22,3 +22,17 @@ elsewhere.
 
 A required section that is absent fails `AddTroupe` with TRP005, naming the component and the section. The
 [manifest](manifest.md) records configuration paths and their owners, never values.
+
+## Native AOT
+
+`Options<T>(section)` binds by reflection, which finds no properties in a trimmed or Native AOT application, so it is
+marked as requiring unreferenced and dynamic code and the publish warns at the call (IL2026, IL3050). Pass the binder
+instead:
+
+```csharp
+component.Options<StorageOptions, StorageOptionsValidator>("Storage", (section, options) => section.Bind(options));
+```
+
+The call names the options type, so the configuration binding source generator, which `PublishAot` turns on,
+replaces it with generated code. The binder receives the owned section. Ownership, the presence check,
+`ValidateOnStart`, reload through `IOptionsMonitor<T>` and TRP022 work as with `Options<T>(section)`.

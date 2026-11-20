@@ -165,7 +165,7 @@ internal sealed class ServiceLedger(IServiceCollection collection)
             var instance = Descriptor.IsKeyedService ? Descriptor.KeyedImplementationInstance : Descriptor.ImplementationInstance;
             var factory = Descriptor.IsKeyedService ? Descriptor.KeyedImplementationFactory is not null : Descriptor.ImplementationFactory is not null;
             return new(Id, Owner, Descriptor.ServiceType, Descriptor.Lifetime, Descriptor.ServiceKey,
-                implementation ?? instance?.GetType(), factory, RemovedBy is null, RemovedBy, ReplacedBy);
+                implementation ?? instance?.GetType(), factory, RemovedBy is null, RemovedBy, ReplacedBy) { ConstructedType = implementation };
         }
     }
     private sealed class Facade(ServiceLedger ledger, CompositionOwner owner, bool privileged) : IServiceCollection

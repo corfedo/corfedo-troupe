@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -62,9 +64,28 @@ public interface IContributorBuilder
     /// </remarks>
     void HostBuilder(Action<IHostApplicationBuilder> configure);
     /// <summary>Binds one owned section to default options, with required presence validation and ValidateOnStart.</summary>
+    /// <remarks>Binds by reflection. Trimmed and Native AOT applications use the overload that takes a binder.</remarks>
+    [RequiresUnreferencedCode(OwnedOptions.ReflectionBinding)]
+    [RequiresDynamicCode(OwnedOptions.ReflectionBinding)]
     void Options<T>(string section, bool required = true) where T : class, new();
     /// <summary>Binds owned options and explicitly registers a DI-constructed validator.</summary>
-    void Options<T, TValidator>(string section, bool required = true)
+    /// <remarks>Binds by reflection. Trimmed and Native AOT applications use the overload that takes a binder.</remarks>
+    [RequiresUnreferencedCode(OwnedOptions.ReflectionBinding)]
+    [RequiresDynamicCode(OwnedOptions.ReflectionBinding)]
+    void Options<T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TValidator>(string section, bool required = true)
+        where T : class, new() where TValidator : class, IValidateOptions<T>;
+    /// <summary>
+    /// Binds one owned section to default options with <paramref name="bind"/>, which receives the section, with required
+    /// presence validation and ValidateOnStart.
+    /// </summary>
+    /// <remarks>
+    /// A binder such as <c>(section, options) =&gt; section.Bind(options)</c> names the options type at the call site, so the
+    /// configuration binding source generator replaces it in trimmed and Native AOT applications.
+    /// </remarks>
+    void Options<T>(string section, Action<IConfiguration, T> bind, bool required = true) where T : class, new();
+    /// <summary>Binds owned options with <paramref name="bind"/> and explicitly registers a DI-constructed validator.</summary>
+    /// <remarks>See <see cref="Options{T}(string, Action{IConfiguration, T}, bool)"/>.</remarks>
+    void Options<T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TValidator>(string section, Action<IConfiguration, T> bind, bool required = true)
         where T : class, new() where TValidator : class, IValidateOptions<T>;
     /// <summary>Records a manual configuration read and enforces required section presence.</summary>
     void ReadsConfiguration(string section, bool required = true);

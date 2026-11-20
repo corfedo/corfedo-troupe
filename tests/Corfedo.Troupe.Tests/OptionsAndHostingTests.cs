@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -72,6 +73,35 @@ public sealed class OptionsAndHostingTests
         A.Declare = r => { r.Options<Probe, Positive>("Probe"); r.Services(s => { s.AddSingleton<ValidationDependency>(); s.AddSingleton<IValidateOptions<Probe>, Even>(); }); };
         bad.AddTroupe<Definition>(); using var badHost = bad.Build();
         Assert.Contains("even", Assert.Throws<OptionsValidationException>(() => badHost.Services.GetRequiredService<IOptions<Probe>>().Value).Message);
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OwnedOptionsBindAndReloadWithEitherBinder(bool binder)
+    {
+        var builder = Builder("a"); builder.Configuration["Probe:Count"] = "2";
+        A.Declare = r =>
+        {
+            if (binder) r.Options<Probe, Positive>("Probe", (section, probe) => section.Bind(probe));
+            else r.Options<Probe, Positive>("Probe");
+        };
+        var manifest = builder.AddTroupe<Definition>();
+        Assert.Single(manifest.Configuration, r => r.OptionsType == typeof(Probe) && r.Section == "Probe" && r.Required);
+        using var host = builder.Build();
+        var monitor = host.Services.GetRequiredService<IOptionsMonitor<Probe>>();
+        Assert.Equal(2, monitor.CurrentValue.Count);
+        builder.Configuration["Probe:Count"] = "4";
+        ((IConfigurationRoot)builder.Configuration).Reload();
+        Assert.Equal(4, monitor.CurrentValue.Count);
+    }
+    [Fact]
+    public void BinderOverloadsKeepSectionOwnership()
+    {
+        A.Declare = r => r.Options<Probe>("Secret", (section, probe) => section.Bind(probe));
+        Assert.Contains(Assert.Throws<CompositionException>(() => Builder("a").AddTroupe<Definition>()).Diagnostics, d => d.Code == "TRP005");
+        var builder = OptionsBuilder(); builder.Configuration["Roles"] = "a,b";
+        B.Declare = r => r.Options<Probe>("Probe", (section, probe) => section.Bind(probe));
+        Assert.Contains("TRP007", Assert.Throws<CompositionException>(() => builder.AddTroupe<Definition>()).Message);
     }
     [Fact]
     public async Task ConstructorAndStartupValidationPrecedeSequentialChecksAndServiceStart()

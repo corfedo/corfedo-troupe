@@ -11,7 +11,7 @@ Each row names what a migration meets, where it goes, and the guide that documen
 | --- | --- | --- |
 | `services.AddX()` of one area | `component.Services(services => services.AddX())` | composition |
 | `AddX()` calling another area's `AddY()` for its services | `Requires<YComponent>()` when X's project references Y's; otherwise the definition requires both | composition |
-| `services.Configure<T>(configuration.GetSection("S"))`, `AddOptions<T>().BindConfiguration("S")` | `Options<T>("S")`; `Options<T>("S", required: false)` when the section is optional. Another binding of the same type's default instance left anywhere fails `Build` (TRP022) | configuration |
+| `services.Configure<T>(configuration.GetSection("S"))`, `AddOptions<T>().BindConfiguration("S")` | `Options<T>("S")`; `Options<T>("S", required: false)` when the section is optional; with `PublishAot` or trimming, `Options<T>("S", (section, options) => section.Bind(options))`. Another binding of the same type's default instance left anywhere fails `Build` (TRP022) | configuration |
 | `ValidateDataAnnotations()`, `Validate(...)`, `IValidateOptions<T>` | `Options<T, TValidator>("S")`, or `Options<T>` plus `services.AddOptions<T>().ValidateDataAnnotations()` in `Services` | configuration |
 | Named options `Configure<T>("name", ...)` | `services.AddOptions<T>("name").BindConfiguration("S:name")` in `Services`, plus `ReadsConfiguration("S:name")`; `Options<T>` has no names | configuration |
 | A value read at registration (`configuration["X"]`, `GetConnectionString`) | `ReadsConfiguration("X")`, and read `IConfiguration` from the provider in a factory: `AddDbContext<T>((provider, options) => ...)`, `AddSingleton(provider => ...)` | configuration |

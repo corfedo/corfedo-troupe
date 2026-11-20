@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
     <Description>Host composition framework for .NET. Components declare their services, configuration and contributions, profiles select the roles each process runs, and a misconfigured host fails at startup with diagnostics that name the owners.</Description>
     <PackageTags>composition;hosting;generic-host;dependency-injection;configuration;modular-monolith;roles;diagnostics</PackageTags>
   </PropertyGroup>

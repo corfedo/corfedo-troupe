@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Corfedo.Troupe;
@@ -40,7 +41,12 @@ public sealed record ContributorEntry(CompositionOwner Owner, IReadOnlyList<Comp
 /// <param name="ReplacedBy">The replacement occurrence, when applicable.</param>
 public sealed record ServiceRegistration(long Id, CompositionOwner Owner, Type ServiceType,
     ServiceLifetime Lifetime, object? Key, Type? ImplementationType, bool IsFactory, bool Active,
-    CompositionOwner? RemovedBy, long? ReplacedBy);
+    CompositionOwner? RemovedBy, long? ReplacedBy)
+{
+    // The type the container constructs, or null for an instance or a factory; the consumer index reads its constructors.
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    internal Type? ConstructedType { get; init; }
+}
 /// <summary>Identifies a service collection mutation entry point.</summary>
 public enum ServiceMutationKind
 {

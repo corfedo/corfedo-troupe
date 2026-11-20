@@ -11,6 +11,7 @@
     <Project Path="tests/Corfedo.Troupe.AspNetCore.Tests/Corfedo.Troupe.AspNetCore.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.Testing.Tests/Corfedo.Troupe.Testing.Tests.csproj" />
     <Project Path="tests/Corfedo.Troupe.Aspire.Hosting.Tests/Corfedo.Troupe.Aspire.Hosting.Tests.csproj" />
+    <Project Path="tests/Corfedo.Troupe.AotSmoke/Corfedo.Troupe.AotSmoke.csproj" />
   </Folder>
   <Folder Name="/tests/Fixtures/">
     <Project Path="tests/Fixtures/GeneratedBindings/GeneratedBindings.csproj" />

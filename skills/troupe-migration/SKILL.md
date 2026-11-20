@@ -36,7 +36,6 @@ Then:
   - the host uses `WebApplication.CreateBuilder` or `Host.CreateApplicationBuilder` (an `IHostApplicationBuilder`);
     `Host.CreateDefaultBuilder` with a `Startup` class needs a hosting-model change first, which is its own task;
   - no third-party DI container (Autofac, Lamar, DryIoc through `UseServiceProviderFactory`);
-  - no Native AOT publishing (`PublishAot`);
   - .NET 10 or later.
 
 ## 1. Inventory (read only)

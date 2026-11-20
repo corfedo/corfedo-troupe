@@ -47,19 +47,21 @@ internal static class CoreRules
             type.GetGenericTypeDefinition() == typeof(IValidateOptions<>) ||
             type.GetGenericTypeDefinition() == typeof(IOptionsChangeTokenSource<>));
     }
-    // How the public constructors of active implementation types take each service type. A repeated slot whose visible
-    // consumers all take IEnumerable<T> is an extension point; a slot with a single consumer or no visible consumer stays reported.
-    // Factory registrations, GetService calls and handler parameters are not visible.
+    // How the public constructors of the active types the container constructs take each service type. A repeated slot whose
+    // visible consumers all take IEnumerable<T> is an extension point; a slot with a single consumer or no visible consumer stays
+    // reported. Instances, factory registrations, GetService calls and handler parameters are not visible.
     private sealed class ConsumerIndex
     {
         private readonly HashSet<Type> single = [];
         private readonly HashSet<Type> enumerable = [];
         internal ConsumerIndex(IEnumerable<ServiceRegistration> active)
         {
-            foreach (var type in active.Select(s => s.ImplementationType).OfType<Type>().Distinct())
-                foreach (var parameter in type.GetConstructors().SelectMany(c => c.GetParameters()).Select(p => p.ParameterType))
-                    if (parameter.IsGenericType && parameter.GetGenericTypeDefinition() == typeof(IEnumerable<>)) enumerable.Add(parameter.GetGenericArguments()[0]);
-                    else single.Add(parameter);
+            var seen = new HashSet<Type>();
+            foreach (var registration in active)
+                if (registration.ConstructedType is { } type && seen.Add(type))
+                    foreach (var parameter in type.GetConstructors().SelectMany(c => c.GetParameters()).Select(p => p.ParameterType))
+                        if (parameter.IsGenericType && parameter.GetGenericTypeDefinition() == typeof(IEnumerable<>)) enumerable.Add(parameter.GetGenericArguments()[0]);
+                        else single.Add(parameter);
         }
         internal bool OnlyEnumerable(Type type) => enumerable.Contains(type) && !single.Contains(type);
     }

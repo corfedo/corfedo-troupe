@@ -11,7 +11,8 @@ parts of the application must run on their own.
 - Troupe builds the service provider with `ValidateOnBuild` and `ValidateScopes`. Remove `ConfigureContainer`,
   `Host.UseServiceProviderFactory` and `Host.UseDefaultServiceProvider` (TRP018). A captive scoped dependency that
   never failed before now fails `Build`.
-- Third-party containers such as Autofac, Native AOT and named options through `Options<T>` are not supported.
+- Third-party containers such as Autofac and named options through `Options<T>` are not supported. A Native AOT
+  application passes a binder to `Options<T>` ([configuration](configuration.md#native-aot)).
 - Packages: `Corfedo.Troupe` in every project that holds components and in the Host, `Corfedo.Troupe.AspNetCore` where
   components declare middleware, endpoints or listeners, and `Corfedo.Troupe.Testing` in the test project.
 - Have tests that start the application and send a request to each area before you begin, so that a failure during

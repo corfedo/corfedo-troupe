@@ -86,6 +86,18 @@ public sealed class OwnedOptionsBindingTests
     }
 
     [Fact]
+    public void BinderOfOwnedOptionsIsTheirOneBinding()
+    {
+        var builder = Generic(new() { ["Owned:Values:0"] = "a" });
+        builder.AddTroupe<BinderOptionsDefinition>();
+        using (var host = builder.Build())
+            Assert.Equal(["a"], host.Services.GetRequiredService<IOptions<Owned>>().Value.Values);
+        var second = Generic(new() { ["Owned:Values:0"] = "a" });
+        second.AddTroupe<BinderSecondBindingDefinition>();
+        Assert.Contains(Assert.Throws<CompositionException>(() => second.Build()).Diagnostics, d => d.Code == "TRP022");
+    }
+
+    [Fact]
     public void SecondBindingFailsAtBuild()
     {
         var builder = Generic(new() { ["Owned:Values:0"] = "a" });
@@ -97,6 +109,18 @@ public sealed class OwnedOptionsBindingTests
     }
 }
 
+public sealed class BinderOptionsDefinition : ICompositionDefinition { public void Define(ICompositionDefinitionBuilder d) => d.Requires<BinderOptionsComponent>(); }
+public sealed class BinderOptionsComponent : IComponent
+{ public void Compose(IComponentBuilder c) => c.Options<Owned>("Owned", (section, owned) => section.Bind(owned), required: false); }
+public sealed class BinderSecondBindingDefinition : ICompositionDefinition { public void Define(ICompositionDefinitionBuilder d) => d.Requires<BinderSecondBindingComponent>(); }
+public sealed class BinderSecondBindingComponent : IComponent
+{
+    public void Compose(IComponentBuilder c)
+    {
+        c.Options<Owned>("Owned", (section, owned) => section.Bind(owned), required: false);
+        c.Services(s => s.AddOptions<Owned>().BindConfiguration("Owned"));
+    }
+}
 public sealed class Owned { public List<string> Values { get; set; } = []; public string Label { get; set; } = ""; }
 public sealed class OptionsDefinition : ICompositionDefinition { public void Define(ICompositionDefinitionBuilder d) => d.Requires<OptionsComponent>(); }
 public sealed class OptionsComponent : IComponent { public void Compose(IComponentBuilder c) => c.Options<Owned>("Owned", required: false); }

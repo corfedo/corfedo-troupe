@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -42,16 +44,32 @@ internal sealed class ContributorBuilder(CompositionOwner owner) : IRoleBuilder,
         ArgumentNullException.ThrowIfNull(configure);
         Record((s, o) => s.ConfigureHost(o, configure));
     }
+    [RequiresUnreferencedCode(OwnedOptions.ReflectionBinding)]
+    [RequiresDynamicCode(OwnedOptions.ReflectionBinding)]
     public void Options<T>(string section, bool required = true) where T : class, new()
     {
         EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(section);
         configuration.Add(new(Owner, section, required, typeof(T)));
         Record((s, o) => OwnedOptions.Register<T>(s, o, section, required));
     }
-    public void Options<T, TValidator>(string section, bool required = true)
+    [RequiresUnreferencedCode(OwnedOptions.ReflectionBinding)]
+    [RequiresDynamicCode(OwnedOptions.ReflectionBinding)]
+    public void Options<T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TValidator>(string section, bool required = true)
         where T : class, new() where TValidator : class, IValidateOptions<T>
     {
         Options<T>(section, required);
+        Services(s => s.AddSingleton<IValidateOptions<T>, TValidator>());
+    }
+    public void Options<T>(string section, Action<IConfiguration, T> bind, bool required = true) where T : class, new()
+    {
+        EnsureOpen(); ArgumentException.ThrowIfNullOrWhiteSpace(section); ArgumentNullException.ThrowIfNull(bind);
+        configuration.Add(new(Owner, section, required, typeof(T)));
+        Record((s, o) => OwnedOptions.Register(s, o, section, bind, required));
+    }
+    public void Options<T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TValidator>(string section, Action<IConfiguration, T> bind, bool required = true)
+        where T : class, new() where TValidator : class, IValidateOptions<T>
+    {
+        Options(section, bind, required);
         Services(s => s.AddSingleton<IValidateOptions<T>, TValidator>());
     }
     public void ReadsConfiguration(string section, bool required = true)
