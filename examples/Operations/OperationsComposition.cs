@@ -15,22 +15,22 @@ public sealed class OperationsComposition : ICompositionDefinition
     }
 }
 
-[Role("gateway")]
 public sealed class GatewayRole : IRole
 {
+    public static string Name => "gateway";
     public void Compose(IRoleBuilder role) => role.Requires<GatewayHost>();
 }
 
-[Role("ai")]
 public sealed class AiRole : IRole
 {
+    public static string Name => "ai";
     public void Compose(IRoleBuilder role) => role.Requires<AiHost>();
 }
 
 /// <summary>The public workload. It calls Gateway and AI through its keyed gateway, wherever they run.</summary>
-[Role("api")]
 public sealed class ApiRole : IRole
 {
+    public static string Name => "api";
     public void Compose(IRoleBuilder role)
     {
         role.Requires<PublicIngress>().Requires<ApiCalls>();

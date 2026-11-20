@@ -25,7 +25,7 @@ diagnostics are written to the description instead of thrown.
 
 | Code | Meaning | Change |
 | --- | --- | --- |
-| TRP010 | Missing, duplicate or conflicting role or contributor identity | Give each role one unique `[Role]` name |
+| TRP010 | Empty, untrimmed, comma-containing, duplicate or conflicting role or contributor identity | Give each role one unique `Name` |
 | TRP011 | Duplicate or empty profile | Rename the profile or add its roles |
 | TRP012 | No roles selected or unknown role names in a definition without profiles, `Roles` set for a definition without roles, or a definition with neither roles nor requirements | Pass `--roles` with declared names, or remove the value |
 | TRP013 | No profile selected, unknown profile, `Roles` used with profiles, or `Profile` set for a definition without profiles | Pass one of the listed profiles, or remove the value |

@@ -4,17 +4,11 @@ using Microsoft.Extensions.Options;
 
 namespace Corfedo.Troupe;
 
-/// <summary>Assigns the stable, ordinal selection name of a role.</summary>
-[AttributeUsage(AttributeTargets.Class, Inherited = false)]
-public sealed class RoleAttribute(string name) : Attribute
-{
-    /// <summary>Gets the selection name.</summary>
-    public string Name { get; } = name;
-}
-
 /// <summary>Declares one selectable workload. Declarations must not acquire resources or perform I/O.</summary>
 public interface IRole
 {
+    /// <summary>Gets the stable, ordinal selection name: nonempty, trimmed and without commas.</summary>
+    static abstract string Name { get; }
     /// <summary>Records dependencies and deferred callbacks for this role.</summary>
     void Compose(IRoleBuilder role);
 }
@@ -49,7 +43,7 @@ public interface ICompositionDefinitionBuilder
 /// <summary>Names the roles of one serving profile.</summary>
 public interface IProfileBuilder
 {
-    /// <summary>Adds a role, named by its <see cref="RoleAttribute"/>, to the profile.</summary>
+    /// <summary>Adds a role, named by its <see cref="IRole.Name"/>, to the profile.</summary>
     IProfileBuilder Role<T>() where T : IRole, new();
 }
 

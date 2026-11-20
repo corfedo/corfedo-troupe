@@ -144,9 +144,9 @@ public void Define(ICompositionDefinitionBuilder definition)
     definition.Stages("routing");
 }
 
-[Role("catalog")]
 public sealed class CatalogRole : IRole
 {
+    public static string Name => "catalog";
     public void Compose(IRoleBuilder role) => role.Requires<CatalogComponent>();
 }
 ```

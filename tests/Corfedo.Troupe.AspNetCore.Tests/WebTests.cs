@@ -267,7 +267,7 @@ public sealed class WebTests
     public sealed class Probe;
     public sealed class PlainDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<Plain>(); }
-    [Role("plain")] public sealed class Plain : IRole { public void Compose(IRoleBuilder r) { } }
+    public sealed class Plain : IRole { public static string Name => "plain"; public void Compose(IRoleBuilder r) { } }
     public sealed class Definition : ICompositionDefinition
     {
         internal static string[] StageNames = [];
@@ -275,11 +275,11 @@ public sealed class WebTests
     }
     public sealed class NoRoutingDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) { d.Role<NoRouting>(); d.Stages("ingress"); } }
-    [Role("a")] public sealed class NoRouting : IRole { public void Compose(IRoleBuilder r) { r.KestrelEndpoint("public"); r.Endpoints(e => e.MapGet("/", () => "ok")); } }
-    [Role("a")] public sealed class A : IRole
-    { internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) { r.Requires<Ingress>(); Declare(r); } }
-    [Role("b")] public sealed class B : IRole
-    { internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) { r.Requires<Ingress>(); Declare(r); } }
+    public sealed class NoRouting : IRole { public static string Name => "a"; public void Compose(IRoleBuilder r) { r.KestrelEndpoint("public"); r.Endpoints(e => e.MapGet("/", () => "ok")); } }
+    public sealed class A : IRole
+    { public static string Name => "a"; internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) { r.Requires<Ingress>(); Declare(r); } }
+    public sealed class B : IRole
+    { public static string Name => "b"; internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) { r.Requires<Ingress>(); Declare(r); } }
     public sealed class Ingress : IComponent
     {
         public void Compose(IComponentBuilder c) { c.KestrelEndpoint("public"); c.Use("match", app => app.UseRouting()); }

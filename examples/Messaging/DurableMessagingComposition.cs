@@ -16,15 +16,15 @@ public sealed class DurableMessagingComposition : ICompositionDefinition
     }
 }
 
-[Role("orders")]
 public sealed class DurableOrdersRole : IRole
 {
+    public static string Name => "orders";
     public void Compose(IRoleBuilder role) => role.Requires<OrdersQueue>().Requires<ReceiptEndpoints>();
 }
 
-[Role("notifications")]
 public sealed class DurableNotificationsRole : IRole
 {
+    public static string Name => "notifications";
     public void Compose(IRoleBuilder role) => role.Requires<NotificationsQueue>().Requires<ReceiptEndpoints>();
 }
 
@@ -64,9 +64,9 @@ public sealed class PostgresMessagingValidator : IValidateOptions<PostgresMessag
             ? ValidateOptionsResult.Fail("Messaging:ConnectionString is required.") : ValidateOptionsResult.Success;
 }
 
-[Role("publisher")]
 public sealed class PublisherRole : IRole
 {
+    public static string Name => "publisher";
     public void Compose(IRoleBuilder role)
     {
         role.Requires<PostgresMessaging>();
@@ -93,8 +93,8 @@ public sealed class DurableProvisioningComposition : ICompositionDefinition
     public void Define(ICompositionDefinitionBuilder definition) => definition.Profile("provision", p => p.Role<DurableProvisioningRole>());
 }
 
-[Role("provision")]
 public sealed class DurableProvisioningRole : IRole
 {
+    public static string Name => "provision";
     public void Compose(IRoleBuilder role) => role.Requires<OrdersQueue>().Requires<NotificationsQueue>();
 }

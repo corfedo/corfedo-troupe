@@ -80,7 +80,8 @@ public sealed class CoreTests
     {
         Assert.Throws<CompositionException>(() => Builder().AddTroupe<DuplicateRoleDefinition>());
         Assert.Throws<CompositionException>(() => Builder().AddTroupe<DuplicateNameDefinition>());
-        Assert.Throws<CompositionException>(() => Builder().AddTroupe<MissingNameDefinition>());
+        Assert.Contains("TRP010", Assert.Throws<CompositionException>(() => Builder().AddTroupe<InvalidNameDefinition<EmptyName>>()).Message);
+        Assert.Contains("TRP010", Assert.Throws<CompositionException>(() => Builder().AddTroupe<InvalidNameDefinition<CommaName>>()).Message);
         Assert.Contains("TRP011", Assert.Throws<CompositionException>(() => Builder().AddTroupe<EmptyProfileDefinition>()).Message);
         Assert.Contains("TRP011", Assert.Throws<CompositionException>(() => Builder().AddTroupe<DuplicateProfileDefinition>()).Message);
     }
@@ -454,8 +455,8 @@ public sealed class CoreTests
     }
     public sealed class DualDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<Dual>(); }
-    [Role("d")] public sealed class Dual : IRole, IComponent
-    { public void Compose(IRoleBuilder r) { } public void Compose(IComponentBuilder c) { } }
+    public sealed class Dual : IRole, IComponent
+    { public static string Name => "d"; public void Compose(IRoleBuilder r) { } public void Compose(IComponentBuilder c) { } }
     public sealed class Definition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<B>(); }
     public sealed class ProfileDefinition : ICompositionDefinition
@@ -464,20 +465,21 @@ public sealed class CoreTests
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<A>(); }
     public sealed class DuplicateNameDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<SameA>(); }
-    public sealed class MissingNameDefinition : ICompositionDefinition
-    { public void Define(ICompositionDefinitionBuilder d) => d.Role<MissingName>(); }
+    public sealed class InvalidNameDefinition<TRole> : ICompositionDefinition where TRole : IRole, new()
+    { public void Define(ICompositionDefinitionBuilder d) => d.Role<TRole>(); }
     public sealed class EmptyProfileDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Profile("empty", _ => { }); }
     public sealed class DuplicateProfileDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Profile("a", p => p.Role<A>()).Profile("a", p => p.Role<B>()); }
     public sealed class SharedRoleProfileDefinition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Profile("a", p => p.Role<A>()).Profile("both", p => p.Role<A>().Role<B>()); }
-    [Role("a")] public sealed class A : IRole
-    { internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) => Declare(r); }
-    [Role("b")] public sealed class B : IRole
-    { internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) => Declare(r); }
-    [Role("a")] public sealed class SameA : IRole { public void Compose(IRoleBuilder r) { } }
-    public sealed class MissingName : IRole { public void Compose(IRoleBuilder r) { } }
+    public sealed class A : IRole
+    { public static string Name => "a"; internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) => Declare(r); }
+    public sealed class B : IRole
+    { public static string Name => "b"; internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) => Declare(r); }
+    public sealed class SameA : IRole { public static string Name => "a"; public void Compose(IRoleBuilder r) { } }
+    public sealed class EmptyName : IRole { public static string Name => ""; public void Compose(IRoleBuilder r) { } }
+    public sealed class CommaName : IRole { public static string Name => "a,b"; public void Compose(IRoleBuilder r) { } }
     public sealed class Store : IComponent { public void Compose(IComponentBuilder c) { } }
     public sealed class Branch : IComponent { public void Compose(IComponentBuilder c) => c.Requires<Store>(); }
     public sealed class FirstB : IComponent { public void Compose(IComponentBuilder c) => c.Services(s => s.TryAddSingleton<Foo>()); }

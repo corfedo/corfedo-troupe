@@ -13,9 +13,9 @@ public sealed class MessagingComposition : ICompositionDefinition
     }
 }
 
-[Role("orders")]
 public sealed class OrdersRole : IRole
 {
+    public static string Name => "orders";
     public void Compose(IRoleBuilder role)
     {
         role.Requires<OrdersConsumer>().Requires<ReceiptEndpoints>();
@@ -36,9 +36,9 @@ public sealed class OrdersRole : IRole
     }
 }
 
-[Role("notifications")]
 public sealed class NotificationsRole : IRole
 {
+    public static string Name => "notifications";
     public void Compose(IRoleBuilder role)
     {
         role.Requires<NotificationsConsumer>().Requires<ReceiptEndpoints>();
@@ -109,8 +109,8 @@ public sealed class HandlerGenerationComposition : ICompositionDefinition
     public void Define(ICompositionDefinitionBuilder definition) => definition.Role<HandlerGenerationRole>();
 }
 
-[Role("generate")]
 public sealed class HandlerGenerationRole : IRole
 {
+    public static string Name => "generate";
     public void Compose(IRoleBuilder role) => role.Requires<OrdersConsumer>().Requires<NotificationsConsumer>();
 }

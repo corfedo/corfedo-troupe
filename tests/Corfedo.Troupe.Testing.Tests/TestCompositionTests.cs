@@ -154,10 +154,10 @@ public sealed class TestCompositionTests
         internal static int Calls;
         public IEnumerable<CompositionDiagnostic> Evaluate(CompositionManifest manifest) { Calls++; return []; }
     }
-    [Role("unselected")] public sealed class Unselected : IRole
-    { public void Compose(IRoleBuilder r) => r.Requires<Elsewhere>(); }
-    [Role("edge")] public sealed class Edge : IRole
-    { public void Compose(IRoleBuilder r) => r.Requires<Ingress>(); }
+    public sealed class Unselected : IRole
+    { public static string Name => "unselected"; public void Compose(IRoleBuilder r) => r.Requires<Elsewhere>(); }
+    public sealed class Edge : IRole
+    { public static string Name => "edge"; public void Compose(IRoleBuilder r) => r.Requires<Ingress>(); }
     public sealed class Store : IComponent { public void Compose(IComponentBuilder c) { } }
     public sealed class Adapter : IComponent
     { public void Compose(IComponentBuilder c) => c.Contribute<List<string>>(target => target.Add("adapter")); }

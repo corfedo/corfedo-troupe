@@ -44,8 +44,8 @@ A definition without roles composes these requirements and reads no selection: i
 
 ## Splitting into processes: roles and profiles
 
-A role is a named set of components that a process can run, named by `[Role]`. The name is what operators type, so it stays stable when the
-class is renamed. A profile is an exact supported set of roles, and declaring it registers its roles:
+A role is a named set of components that a process can run, named by its static `Name`. The name is what operators
+type, so it stays stable when the class is renamed. A profile is an exact supported set of roles, and declaring it registers its roles:
 
 ```csharp
 definition
@@ -70,9 +70,9 @@ definition's components. A process that runs only those components, such as an o
 nothing more:
 
 ```csharp
-[Role("outbox")]
 public sealed class OutboxRole : IRole
 {
+    public static string Name => "outbox";
     public void Compose(IRoleBuilder role) { }
 }
 ```

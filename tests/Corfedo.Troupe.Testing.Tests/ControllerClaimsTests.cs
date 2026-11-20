@@ -186,11 +186,12 @@ namespace Corfedo.Troupe.Testing.Tests.ClaimedControllers
     }
     public sealed class OrdersComponent : IComponent { public void Compose(IComponentBuilder c) { c.Requires<Mvc>(); c.Controllers<Areas.Orders.OrdersController>(); } }
     public sealed class SecondOrdersClaim : IComponent { public void Compose(IComponentBuilder c) { c.Requires<Mvc>(); c.Controllers<Areas.Orders.OrdersController>(); } }
-    [Role("orders")] public sealed class OrdersRole : IRole
+    public sealed class OrdersRole : IRole
     {
+        public static string Name => "orders";
         public void Compose(IRoleBuilder r) { r.Requires<OrdersComponent>(); r.Requires<MaybeFailing>(); }
     }
-    [Role("plain")] public sealed class PlainRole : IRole { public void Compose(IRoleBuilder r) => r.Requires<Mvc>(); }
+    public sealed class PlainRole : IRole { public static string Name => "plain"; public void Compose(IRoleBuilder r) => r.Requires<Mvc>(); }
     public sealed class MaybeFailing : IComponent
     {
         public void Compose(IComponentBuilder c) => c.ReadsConfiguration("Required");
@@ -232,8 +233,8 @@ namespace Corfedo.Troupe.Testing.Tests.ClaimedControllers
     {
         public void Compose(IComponentBuilder c) { c.Requires<Mvc>(); c.Controllers<Areas.Catalog.CatalogController>(); c.Controllers<Areas.Catalog.Reviews.ReviewsController>(); }
     }
-    [Role("catalog")] public sealed class CatalogRole : IRole { public void Compose(IRoleBuilder r) => r.Requires<CatalogComponent>(); }
-    [Role("reviews")] public sealed class ReviewsRole : IRole { public void Compose(IRoleBuilder r) => r.Requires<ReviewsComponent>(); }
+    public sealed class CatalogRole : IRole { public static string Name => "catalog"; public void Compose(IRoleBuilder r) => r.Requires<CatalogComponent>(); }
+    public sealed class ReviewsRole : IRole { public static string Name => "reviews"; public void Compose(IRoleBuilder r) => r.Requires<ReviewsComponent>(); }
     public sealed class NestedClaimsDefinition : ICompositionDefinition
     {
         public void Define(ICompositionDefinitionBuilder d) { d.Stages("routing"); d.ControllerClaims(); d.Requires<CatalogComponent>().Requires<ReviewsComponent>(); }
@@ -270,8 +271,8 @@ namespace Corfedo.Troupe.Testing.Tests.ClaimedControllers
     {
         public void Define(ICompositionDefinitionBuilder d) { d.Stages("routing"); d.ControllerClaims(); d.Profile("mvc", p => p.Role<MvcRole>()); }
     }
-    [Role("mvc")] public sealed class MvcRole : IRole { public void Compose(IRoleBuilder r) => r.Requires<ClaimedArea>(); }
-    [Role("worker")] public sealed class WorkerRole : IRole { public void Compose(IRoleBuilder r) { } }
+    public sealed class MvcRole : IRole { public static string Name => "mvc"; public void Compose(IRoleBuilder r) => r.Requires<ClaimedArea>(); }
+    public sealed class WorkerRole : IRole { public static string Name => "worker"; public void Compose(IRoleBuilder r) { } }
 }
 
 namespace Corfedo.Troupe.Testing.Tests.ClaimedControllers.Areas.Orders

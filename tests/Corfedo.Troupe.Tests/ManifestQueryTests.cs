@@ -50,8 +50,9 @@ public sealed class ManifestQueryTests
     }
     public sealed class Definition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<ReaderRole>().Role<WriterRole>(); }
-    [Role("reader")] public sealed class ReaderRole : IRole
+    public sealed class ReaderRole : IRole
     {
+        public static string Name => "reader";
         public void Compose(IRoleBuilder r)
         {
             r.Requires<Store>();
@@ -60,8 +61,9 @@ public sealed class ManifestQueryTests
             r.Services(s => { s.AddSingleton<Value>(); s.AddKeyedSingleton<Value>("k"); });
         }
     }
-    [Role("writer")] public sealed class WriterRole : IRole
+    public sealed class WriterRole : IRole
     {
+        public static string Name => "writer";
         public void Compose(IRoleBuilder r)
         {
             r.Requires<Journal>().Requires<Cache>();

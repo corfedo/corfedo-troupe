@@ -176,8 +176,8 @@ public sealed class OperationsExampleTests : IDisposable
             definition.Stages("routing", "internal");
         }
     }
-    [Role("api")] public sealed class IncompleteApi : IRole { public void Compose(IRoleBuilder role) => role.Requires<GatewayOnlyCalls>(); }
-    [Role("gateway")] public sealed class IncompleteGateway : IRole { public void Compose(IRoleBuilder role) => role.Requires<GatewayCallsAi>(); }
+    public sealed class IncompleteApi : IRole { public static string Name => "api"; public void Compose(IRoleBuilder role) => role.Requires<GatewayOnlyCalls>(); }
+    public sealed class IncompleteGateway : IRole { public static string Name => "gateway"; public void Compose(IRoleBuilder role) => role.Requires<GatewayCallsAi>(); }
     public sealed class GatewayOnlyCalls : IComponent
     { public void Compose(IComponentBuilder component) => Calls.Declare(component, Workload.Api, d => d.To<GatewayHost>(Workload.Gateway)); }
     public sealed class GatewayCallsAi : IComponent

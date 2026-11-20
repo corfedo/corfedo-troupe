@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace Corfedo.Troupe;
 
 internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
@@ -40,10 +38,10 @@ internal sealed class DefinitionBuilder : ICompositionDefinitionBuilder
         return this;
     }
 
-    // A role type registers once under its attribute name; profiles naming it again reuse that registration.
+    // A role type registers once under its name; profiles naming it again reuse that registration.
     private string Register<T>(bool reuse) where T : IRole, new()
     {
-        var name = typeof(T).GetCustomAttribute<RoleAttribute>()?.Name;
+        var name = T.Name;
         if (string.IsNullOrWhiteSpace(name) || name.Contains(',') || name != name.Trim())
             throw Errors.Fail("TRP010", $"Role {typeof(T).FullName} needs a nonempty, trimmed name without commas.");
         if (reuse && Roles.TryGetValue(name, out var existing) && existing.Identity.Type == typeof(T)) return name;

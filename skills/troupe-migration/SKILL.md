@@ -171,7 +171,8 @@ intended split; it does not make it ready.
   verified. Contracts (durable messages, remote calls, shared stores, single-instance leases) are their own work that
   the user approves and that comes first; propose them, and do not declare split profiles as runnable before they exist.
   Inconclusive findings are resolved before, or the user accepts them explicitly.
-- One `IRole` per chosen part, `[Role("name")]` with the name operators will type, requiring the existing components.
+- One `IRole` per chosen part, `public static string Name => "name";` with the name operators will type, requiring the
+  existing components.
   Components that every process needs, such as telemetry, stay `definition.Requires<T>()`.
 - Profiles for each supported process, plus one that runs every role (`combined`) for local runs and single-process
   deployments. `Profile` has no default: set it in `appsettings.Development.json` and in every deployment (TRP013).

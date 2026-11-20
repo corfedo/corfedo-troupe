@@ -145,5 +145,5 @@ public sealed class WebBoundaryTests
     {
         public void Define(ICompositionDefinitionBuilder d) { d.Role<Plain>(); d.Stages("routing", "ingress"); }
     }
-    [Role("plain")] public sealed class Plain : IRole { public void Compose(IRoleBuilder r) { } }
+    public sealed class Plain : IRole { public static string Name => "plain"; public void Compose(IRoleBuilder r) { } }
 }

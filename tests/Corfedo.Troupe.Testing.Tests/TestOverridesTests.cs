@@ -246,10 +246,10 @@ public sealed class TestOverridesTests
     }
     public sealed class Definition : ICompositionDefinition
     { public void Define(ICompositionDefinitionBuilder d) => d.Role<A>().Role<B>(); }
-    [Role("a")] public sealed class A : IRole
-    { internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) => Declare(r); }
-    [Role("b")] public sealed class B : IRole
-    { internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) => Declare(r); }
+    public sealed class A : IRole
+    { public static string Name => "a"; internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) => Declare(r); }
+    public sealed class B : IRole
+    { public static string Name => "b"; internal static Action<IRoleBuilder> Declare = _ => { }; public void Compose(IRoleBuilder r) => Declare(r); }
     public interface IValue;
     public sealed class Original : IValue;
     public sealed class Other : IValue;

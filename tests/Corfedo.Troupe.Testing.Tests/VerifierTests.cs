@@ -318,13 +318,15 @@ public sealed class VerifierTests
         public void Define(ICompositionDefinitionBuilder d)
         { d.Profile("both", p => p.Role<A>().Role<B>()).Profile("single", p => p.Role<A>()); d.Stages("routing"); }
     }
-    [Role("a")] public sealed class A : IRole
+    public sealed class A : IRole
     {
+        public static string Name => "a";
         internal static Action<IRoleBuilder> Declare = _ => { };
         public void Compose(IRoleBuilder r) { Declare(r); }
     }
-    [Role("b")] public sealed class B : IRole
+    public sealed class B : IRole
     {
+        public static string Name => "b";
         internal static Action<IRoleBuilder> Declare = _ => { };
         public void Compose(IRoleBuilder r) { Declare(r); }
     }
