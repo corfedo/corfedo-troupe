@@ -26,3 +26,6 @@ Commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 example `feat: add a profile option`. Release notes are generated from them.
 
 Contributions are licensed under Apache-2.0, the license of this repository.
+
+AI-assisted contributions follow the
+[organization policy](https://github.com/corfedo/.github/blob/main/CONTRIBUTING.md#ai-assisted-contributions).
